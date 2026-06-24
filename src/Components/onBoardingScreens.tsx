@@ -11,9 +11,10 @@ import {
 type Props = {
   step: number;
   next: () => void;
+  onSkip: () => void;
 };
 
-const Onboarding: React.FC<Props> = ({ step, next }) => {
+const Onboarding: React.FC<Props> = ({ step, next, onSkip }) => {
 
   const data = [
     {
@@ -38,7 +39,9 @@ const Onboarding: React.FC<Props> = ({ step, next }) => {
   return (
     <View style={styles.container}>
 
-      <Text style={styles.skip}>Skip</Text>
+      <TouchableOpacity onPress={onSkip} style={styles.skipButton} accessibilityRole="button" accessibilityLabel="Skip onboarding">
+        <Text style={styles.skip}>Skip</Text>
+      </TouchableOpacity>
 
       <View style={styles.card}>
 
@@ -128,11 +131,15 @@ const styles = StyleSheet.create({
   },
 
   skip: {
+    fontSize: 14,
+    color: "gray",
+  },
+
+  skipButton: {
     position: "absolute",
     top: 50,
     right: 20,
-    fontSize: 14,
-    color: "gray",
+    padding: 10,
   },
 
   card: {
