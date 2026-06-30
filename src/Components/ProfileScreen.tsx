@@ -22,7 +22,10 @@ type Props = {
     name: string;
     email: string;
   };
+  darkMode: boolean;
+  setDarkMode: (value: boolean) => void;
 };
+
 
 const ProfileScreen: React.FC<Props> = ({
   goToHome,
@@ -36,6 +39,8 @@ const ProfileScreen: React.FC<Props> = ({
   
   // 1. Nayi Profile add karne wale popup ke liye state
   const [addProfileModal, setAddProfileModal] = useState(false);
+  const [prayerModal, setPrayerModal] = useState(false);
+const [prayerMode, setPrayerMode] = useState("current");
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,6 +93,7 @@ const ProfileScreen: React.FC<Props> = ({
           <Text style={styles.label}>Dark Mode</Text>
           <Switch value={darkMode} onValueChange={setDarkMode} />
         </View>
+        
 
         <View style={styles.card}>
           <Text style={styles.label}>Change Password</Text>
@@ -98,6 +104,31 @@ const ProfileScreen: React.FC<Props> = ({
           <Text style={styles.label}>Language</Text>
           <Ionicons name="chevron-forward" size={20} color="#777" />
         </View>
+        <TouchableOpacity
+  style={styles.card}
+  onPress={() =>{console.log("Prayer Times pressed"); 
+  setPrayerModal(true)}
+  }
+>
+  <View style={{ flexDirection: "row", alignItems: "center" }}>
+    <Ionicons
+      name="time-outline"
+      size={22}
+      color="#6C4DF7"
+      style={{ marginRight: 12 }}
+    />
+
+    <Text style={styles.label}>
+      Prayer Times
+    </Text>
+  </View>
+
+  <Ionicons
+    name="chevron-forward"
+    size={20}
+    color="#777"
+  />
+</TouchableOpacity>
 
         <View style={styles.card}>
           <Text style={styles.label}>Contact Support</Text>
@@ -127,7 +158,73 @@ const ProfileScreen: React.FC<Props> = ({
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
+        
+
       </ScrollView>
+      <Modal
+  transparent
+  visible={prayerModal}
+  animationType="slide"
+>
+  <View style={styles.modalBg}>
+    <View style={styles.modalBox}>
+
+      <Text style={styles.modalTitle}>
+        Prayer Time Settings
+      </Text>
+
+      <TouchableOpacity
+        style={styles.optionBtn}
+        onPress={() => {
+          setPrayerModal(false);
+
+          // Future API
+          console.log("Current Location");
+        }}
+      >
+        <Ionicons
+          name="location"
+          size={22}
+          color="#6C4DF7"
+        />
+
+        <Text style={styles.optionText}>
+          Use Current Location
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.optionBtn}
+        onPress={() => {
+          setPrayerModal(false);
+
+          // Future Screen
+          console.log("Manual City");
+        }}
+      >
+        <Ionicons
+          name="business"
+          size={22}
+          color="#6C4DF7"
+        />
+
+        <Text style={styles.optionText}>
+          Select City Manually
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.cancelBtn}
+        onPress={() => setPrayerModal(false)}
+      >
+        <Text style={{ color: "#fff" }}>
+          Cancel
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
 
       {/* ➕ ADD NEW PROFILE MODAL (POPUP) */}
       <Modal transparent visible={addProfileModal} animationType="fade">
@@ -391,4 +488,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  optionBtn: {
+  flexDirection: "row",
+  alignItems: "center",
+  paddingVertical: 16,
+},
+
+optionText: {
+  fontSize: 16,
+  marginLeft: 15,
+  fontWeight: "600",
+},
+
+cancelBtn: {
+  backgroundColor: "#6C4DF7",
+  padding: 14,
+  borderRadius: 12,
+  alignItems: "center",
+  marginTop: 20,
+},
 });
