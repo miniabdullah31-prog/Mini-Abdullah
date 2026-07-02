@@ -3,6 +3,20 @@ const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 
+const authMiddleware = require("../middleware/authMiddleware");
+
+//Middleware
+const authMiddleware = require("../middleware/authMiddleware");
+
+const {
+  getProfile,
+  updateProfile,
+} = require("../controllers/profileController");
+
+router.get("/profile", authMiddleware, getProfile);
+
+router.put("/profile", authMiddleware, updateProfile);
+
 // SIGNUP
 router.post("/signup", async (req, res) => {
 

@@ -26,7 +26,7 @@ type Props = {
   goToSalah: () => void;
   goToQuiz: () => void;
   goToGoodDeeds: () => void;
-  goToLearn: () => void; // Added type
+  goToLearn: () => void;
   goToProfile: () => void;
 };
 
@@ -55,23 +55,32 @@ const Home: React.FC<Props> = ({
       setLoading(true);
       setPrayerModal(false);
       console.log("Starting geolocation...");
-      const result = await getPrayerTimesFromCurrentLocation();
+      
+      // 🌟 Yahan ': any' lagane se TypeScript ki red line khatam ho jayegi
+      const result: any = await getPrayerTimesFromCurrentLocation();
       console.log("Prayer times received:", result);
+      
       setCurrentCity(result.city);
-      setPrayerTimes(result.prayerTimes);
-      setShowPrayerTimes(true);
+      
+      const times = result.prayerTimes;
+      if (times) {
+        setPrayerTimes({
+          fajr: times.fajr,
+          dhuhr: times.dhuhr,
+          asr: times.asr,
+          maghrib: times.maghrib,
+          isha: times.isha,
+        });
+        setShowPrayerTimes(true);
+      } else {
+        throw new Error("No prayer times data found");
+      }
     } catch (error) {
       console.log("Error in handleUseCurrentLocation:", error);
       Alert.alert("Error", error instanceof Error ? error.message : "Failed to get prayer times");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleManualCity = () => {
-    setPrayerModal(false);
-    setManualCity("");
-    setManualCityModal(true);
   };
 
   const handleSearchManualCity = async () => {
@@ -85,10 +94,23 @@ const Home: React.FC<Props> = ({
     setLoading(true);
 
     try {
-      const result = await getPrayerTimesByCity(city);
+      // 🌟 Yahan bhi ': any' add kar diya
+      const result: any = await getPrayerTimesByCity(city);
       setCurrentCity(result.city);
-      setPrayerTimes(result.prayerTimes);
-      setShowPrayerTimes(true);
+      
+      const times = result.prayerTimes;
+      if (times) {
+        setPrayerTimes({
+          fajr: times.fajr,
+          dhuhr: times.dhuhr,
+          asr: times.asr,
+          maghrib: times.maghrib,
+          isha: times.isha,
+        });
+        setShowPrayerTimes(true);
+      } else {
+        throw new Error("City timings data is empty");
+      }
     } catch (error) {
       Alert.alert("Error", "City not found or failed to fetch prayer times");
     } finally {
@@ -171,23 +193,18 @@ const Home: React.FC<Props> = ({
         </View>
       </ScrollView>
 
+      {/* SETTINGS MODAL */}
       <Modal transparent visible={prayerModal} animationType="slide">
         <View style={styles.modalBg}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Prayer Time Settings</Text>
 
-            <TouchableOpacity
-              style={styles.optionBtn}
-              onPress={handleUseCurrentLocation}
-            >
+            <TouchableOpacity style={styles.optionBtn} onPress={handleUseCurrentLocation}>
               <Ionicons name="location-outline" size={22} color="#6C4DF7" />
               <Text style={styles.optionText}>Use Current Location</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.optionBtn}
-              onPress={handleManualCity}
-            >
+            <TouchableOpacity style={styles.optionBtn} onPress={handleSearchManualCity}>
               <Ionicons name="business-outline" size={22} color="#6C4DF7" />
               <Text style={styles.optionText}>Select City Manually</Text>
             </TouchableOpacity>
@@ -290,7 +307,6 @@ const Home: React.FC<Props> = ({
             <Text style={[styles.navText, { color: "#7A3DFF" }]}>Home</Text>
           </TouchableOpacity>
 
-          {/* UPDATED TO LEARN SCREEN BUTTON */}
           <TouchableOpacity style={styles.navItem} onPress={goToLearn} accessibilityRole="button" accessibilityLabel="Learn">
             <Ionicons name="book" size={28} color="#2FB65D" />
             <Text style={[styles.navText, { color: "#2FB65D" }]}>Learn</Text>
@@ -313,7 +329,6 @@ const Home: React.FC<Props> = ({
 
 export default Home;
 
-// (Styles maintain original state)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F6F7FB" },
   topSection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 15, position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
@@ -342,128 +357,23 @@ const styles = StyleSheet.create({
   navbarInner: { backgroundColor: "#fff", borderRadius: 35, flexDirection: "row", justifyContent: "space-around", alignItems: "center", paddingVertical: 14, elevation: 12, zIndex: 9999 },
   navItem: { alignItems: "center" },
   navText: { marginTop: 4, fontSize: 14, fontWeight: "700" },
-  modalBg: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalBox: {
-    width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 22,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#2E1A6B",
-    marginBottom: 18,
-    textAlign: "center",
-  },
-  optionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: "#F5F2FF",
-    marginBottom: 10,
-  },
-  optionText: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "600",
-  },
-  cancelBtn: {
-    marginTop: 10,
-    backgroundColor: "#6C4DF7",
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  cityInput: {
-    backgroundColor: "#F6F7FB",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    marginTop: 14,
-    color: "#333",
-  },
-  modalButtonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 18,
-  },
-  actionModalBtn: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionBtnText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  prayerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEE",
-  },
-  prayerHeaderTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#6C4DF7",
-  },
-  prayerContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  cityName: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#2E1A6B",
-    marginBottom: 8,
-  },
-  dateText: {
-    fontSize: 14,
-    color: "#999",
-    marginBottom: 20,
-  },
-  prayerGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  prayerCard: {
-    width: "48%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 3,
-    alignItems: "center",
-  },
-  prayerLabel: {
-    fontSize: 14,
-    color: "#999",
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  prayerTime: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#6C4DF7",
-  },
+  modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center", padding: 20 },
+  modalBox: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 22 },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: "#2E1A6B", marginBottom: 18, textAlign: "center" },
+  optionBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "#F5F2FF", marginBottom: 10 },
+  optionText: { marginLeft: 10, fontSize: 16, color: "#333", fontWeight: "600" },
+  cancelBtn: { marginTop: 10, backgroundColor: "#6C4DF7", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+  cityInput: { backgroundColor: "#F6F7FB", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, borderWidth: 1, borderColor: "#E0E0E0", marginTop: 14, color: "#333" },
+  modalButtonRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 18 },
+  actionModalBtn: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  actionBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  prayerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: "#EEE" },
+  prayerHeaderTitle: { fontSize: 18, fontWeight: "700", color: "#6C4DF7" },
+  prayerContainer: { paddingHorizontal: 20, paddingVertical: 20 },
+  cityName: { fontSize: 28, fontWeight: "700", color: "#2E1A6B", marginBottom: 8 },
+  dateText: { fontSize: 14, color: "#999", marginBottom: 20 },
+  prayerGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  prayerCard: { width: "48%", backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, elevation: 3, alignItems: "center" },
+  prayerLabel: { fontSize: 14, color: "#999", fontWeight: "600", marginBottom: 8 },
+  prayerTime: { fontSize: 22, fontWeight: "700", color: "#6C4DF7" },
 });

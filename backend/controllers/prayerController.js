@@ -29,9 +29,20 @@ async function getPrayerTimes(req, res) {
       prayerTimes = await getPrayerTimesForCity(city);
     }
 
+    // 🌟 FIX: Data structure ko frontend ke mutabiq wrap kiya
     return res.status(200).json({
       success: true,
-      data: prayerTimes,
+      data: {
+        city: prayerTimes.city,
+        // Aladhan API aur DB dono ke cases safe rakhne ke liye lower/upper dono handle kiye
+        prayerTimes: {
+          fajr: prayerTimes.fajr || prayerTimes.Fajr,
+          dhuhr: prayerTimes.dhuhr || prayerTimes.Dhuhr,
+          asr: prayerTimes.asr || prayerTimes.Asr,
+          maghrib: prayerTimes.maghrib || prayerTimes.Maghrib,
+          isha: prayerTimes.isha || prayerTimes.Isha,
+        }
+      },
     });
   } catch (error) {
     console.log("Error in getPrayerTimes:", error);

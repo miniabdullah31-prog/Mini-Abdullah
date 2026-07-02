@@ -1,5 +1,5 @@
+import Geolocation from '@react-native-community/geolocation';
 import axios from 'axios';
-import Geolocation from 'react-native-geolocation-service';
 import { PermissionsAndroid, Platform } from 'react-native';
 
 async function requestLocationPermission() {
@@ -7,18 +7,34 @@ async function requestLocationPermission() {
     return true;
   }
 
-  const granted = await PermissionsAndroid.request(
-    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-    {
-      title: 'Location access',
-      message: 'We use your location to show accurate prayer times.',
-      buttonNeutral: 'Ask Me Later',
-      buttonNegative: 'Cancel',
-      buttonPositive: 'OK',
-    },
-  );
+  try {
+    // Pehle check karein ke kahin permission pehle se toh allow nahi hai?
+    const alreadyGranted = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+    );
+    
+    if (alreadyGranted) return true;
 
-  return granted === PermissionsAndroid.RESULTS.GRANTED;
+    // Agar pehle se allow nahi hai, toh pop-up dikhayein
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Location access',
+        message: 'We use your location to show accurate prayer times.',
+        buttonNeutral: 'Ask Me Later',
+        buttonNegative: 'Cancel',
+        buttonPositive: 'OK',
+      },
+    );
+
+    return (
+      granted === PermissionsAndroid.RESULTS.GRANTED || 
+      granted === 'granted' // Kuch emulators string directly de dete hain
+    );
+  } catch (err) {
+    console.warn(err);
+    return false;
+  }
 }
 
 export async function getPrayerTimes(city: string, baseURL = 'http://10.0.2.2:5000') {
@@ -62,20 +78,6 @@ export async function getPrayerTimesByCoordinates(latitude: number, longitude: n
   }
 }
 
-export async function getPrayerTimesByCity(city: string, baseURL = 'http://10.0.2.2:5000') {
-  try {
-    console.log('📍 Getting prayer times for city:', city);
-    const prayerTimes = await getPrayerTimes(city, baseURL);
-    return {
-      city,
-      prayerTimes,
-    };
-  } catch (error: any) {
-    console.log('❌ Error fetching prayer times by city:', error.message);
-    throw error;
-  }
-}
-
 export async function getPrayerTimesFromCurrentLocation(baseURL = 'http://10.0.2.2:5000') {
   try {
     const hasPermission = await requestLocationPermission();
@@ -84,8 +86,9 @@ export async function getPrayerTimesFromCurrentLocation(baseURL = 'http://10.0.2
     }
 
     return await new Promise((resolve, reject) => {
-      if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
-        return reject(new Error('Geolocation service is not available. Ensure react-native-geolocation-service is installed and linked.'));
+      // 🌟 TypeScript warning hatane ke liye simple check
+      if (!Geolocation) {
+        return reject(new Error('Location service module is missing. Please rebuild the app using npx react-native run-android.'));
       }
 
       Geolocation.getCurrentPosition(
@@ -109,6 +112,21 @@ export async function getPrayerTimesFromCurrentLocation(baseURL = 'http://10.0.2
     });
   } catch (error: any) {
     console.log('❌ Error in getPrayerTimesFromCurrentLocation:', error.message);
+    throw error;
+  }
+}
+
+// 🌟 FIX: Is function ko bahar nikal diya taake ab ye properly export ho sakay!
+export async function getPrayerTimesByCity(city: string, baseURL = 'http://10.0.2.2:5000') {
+  try {
+    console.log('📍 Getting prayer times for city:', city);
+    const prayerTimes = await getPrayerTimes(city, baseURL);
+    return {
+      city,
+      prayerTimes,
+    };
+  } catch (error: any) {
+    console.log('❌ Error fetching prayer times by city:', error.message);
     throw error;
   }
 }
