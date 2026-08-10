@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,254 +7,420 @@ import {
   ScrollView,
   TouchableOpacity,
   ImageBackground,
+  TextInput,
+  StatusBar,
 } from "react-native";
-
+import LinearGradient from "react-native-linear-gradient";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import WordSearchGame from "./quiz/WordSearchGame";
+import MatchGame from "./quiz/MatchGame";
+import MeaningGame from "./quiz/MeaningGame";
+import HeaderSpark from "./HeaderSparkStar";
 
-type Props = {
-  goBack: () => void;
-};
+type Props = { goBack: () => void };
+type GameId = "wordsearch" | "match" | "meaning" | null;
 
-const IslamicQuizScreen: React.FC<Props> = ({
-  goBack,
-}) => {
+const GAMES: {
+  id: Exclude<GameId, null>;
+  title: string;
+  subtitle: string;
+  funLine: string;
+  colors: [string, string, string];
+  icon: string;
+  badge: string;
+  deco: string[];
+  accent: string;
+}[] = [
+  {
+    id: "wordsearch",
+    title: "Word Search",
+    subtitle: "Find hidden words in the grid",
+    funLine: "Slide · find · win stars!",
+    colors: ["#8B5CF6", "#6D28D9", "#4C1D95"],
+    icon: "grid",
+    badge: "2 Levels",
+    deco: ["★", "✦", "🌙"],
+    accent: "#FDE68A",
+  },
+  {
+    id: "match",
+    title: "Match Meaning",
+    subtitle: "Join Arabic with Urdu or English",
+    funLine: "Tap pairs · learn fast!",
+    colors: ["#14B8A6", "#0D9488", "#0F766E"],
+    icon: "git-compare",
+    badge: "2 Levels",
+    deco: ["✦", "💚", "★"],
+    accent: "#A7F3D0",
+  },
+  {
+    id: "meaning",
+    title: "Pick Meaning",
+    subtitle: "Choose the right meaning",
+    funLine: "4 choices · be smart!",
+    colors: ["#3B82F6", "#2563EB", "#1D4ED8"],
+    icon: "bulb",
+    badge: "2 Levels",
+    deco: ["💡", "★", "✦"],
+    accent: "#BFDBFE",
+  },
+];
 
-  const [selectedSection, setSelectedSection] =
-    useState<any>(null);
+const IslamicQuizScreen: React.FC<Props> = ({ goBack }) => {
+  const [game, setGame] = useState<GameId>(null);
+  const [search, setSearch] = useState("");
 
-  const sections = [
-    {
-      id: 1,
-      title: "Question Answers",
-      icon: "❓",
-      description:
-        "Answer Islamic questions.",
-      bg: require("../homeAssets/purpleCard.jpg")
-    },
-
-    {
-      id: 2,
-      title: "Fill In The Blanks",
-      icon: "✍️",
-      description:
-        "Complete the missing words.",
-     bg: require("../homeAssets/orangeCard.jpg")
-    },
-
-    {
-      id: 3,
-      title: "Tick & Cross",
-      icon: "✅❌",
-      description:
-        "Choose correct or wrong.",
-      bg: require("../homeAssets/pinkCard.jpg")
-    },
-  ];
-
-  if (selectedSection) {
-
-    return (
-
-      <SafeAreaView style={styles.container}>
-
-        <ScrollView>
-
-          <ImageBackground
-            source={require("../homeAssets/Quotebg.jpg")}
-            style={styles.header}
-          >
-
-            <BackButton
-              onPress={() =>
-                setSelectedSection(null)
-              }
-            />
-
-            <Text style={styles.bigTitle}>
-              {selectedSection.title}
-            </Text>
-
-          </ImageBackground>
-
-          <View style={styles.detailCard}>
-
-            <Text style={styles.icon}>
-              {selectedSection.icon}
-            </Text>
-
-            <Text style={styles.detail}>
-              {selectedSection.description}
-            </Text>
-
-            <Text style={styles.comingSoon}>
-              Quiz Questions Coming Soon 🚀
-            </Text>
-
-          </View>
-
-        </ScrollView>
-
-      </SafeAreaView>
-
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return GAMES;
+    return GAMES.filter(
+      (g) =>
+        g.title.toLowerCase().includes(q) ||
+        g.subtitle.toLowerCase().includes(q) ||
+        g.funLine.toLowerCase().includes(q) ||
+        g.id.includes(q),
     );
+  }, [search]);
+
+  if (game === "wordsearch") {
+    return <WordSearchGame onExitToHub={() => setGame(null)} />;
+  }
+  if (game === "match") {
+    return <MatchGame onExitToHub={() => setGame(null)} />;
+  }
+  if (game === "meaning") {
+    return <MeaningGame onExitToHub={() => setGame(null)} />;
   }
 
   return (
-
     <SafeAreaView style={styles.container}>
-
-      <ScrollView>
-
+      <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 36 }}
+      >
         <ImageBackground
           source={require("../homeAssets/Quotebg.jpg")}
           style={styles.header}
+          imageStyle={styles.headerRadius}
         >
-
-          <BackButton
-            onPress={goBack}
-          />
-
-          <Text style={styles.title}>
-            Islamic Quiz 🏆
-          </Text>
-
+          <View style={styles.trophyRow}>
+            <Text style={styles.trophy}>🏆</Text>
+            <Text style={styles.title}>Islamic Quiz</Text>
+            <Text style={styles.trophy}>⭐</Text>
+          </View>
           <Text style={styles.subtitle}>
-            Test Your Knowledge
+            Play · learn · collect stars
           </Text>
-
+          <HeaderSpark />
+          <View style={styles.headerPills}>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>3 Games</Text>
+            </View>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>2 Levels</Text>
+            </View>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>5 Stars</Text>
+            </View>
+          </View>
         </ImageBackground>
 
-        <View style={styles.cardsContainer}>
-
-          {sections.map((item) => (
-
-           <TouchableOpacity
-  key={item.id}
-  activeOpacity={0.9}
-  style={styles.cardWrapper}
-  onPress={() =>
-    setSelectedSection(item)
-  }
->
-
-  <ImageBackground
-    source={item.bg}
-    style={styles.card}
-    imageStyle={{
-      borderRadius: 22,
-    }}
-  >
-
-    <Text style={styles.cardIcon}>
-      {item.icon}
-    </Text>
-
-    <Text style={styles.cardTitle}>
-      {item.title}
-    </Text>
-
-  </ImageBackground>
-
-</TouchableOpacity>
-
-          ))}
-
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#777" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search games... Word, Match, Meaning"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
 
+        <View style={styles.tipBanner}>
+          <Text style={styles.tipEmoji}>🎮</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tipTitle}>Kids play tip</Text>
+            <Text style={styles.tipBody}>
+              Clear levels with fewer mistakes to earn more stars!
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Choose your adventure</Text>
+
+        <View style={styles.cards}>
+          {filtered.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.92}
+              style={styles.cardWrap}
+              onPress={() => setGame(item.id)}
+            >
+              <LinearGradient
+                colors={item.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.card}
+              >
+                {/* decorative objects */}
+                <Text style={[styles.deco, styles.deco1]}>{item.deco[0]}</Text>
+                <Text style={[styles.deco, styles.deco2]}>{item.deco[1]}</Text>
+                <Text style={[styles.deco, styles.deco3]}>{item.deco[2]}</Text>
+                <View style={[styles.blob, styles.blobA]} />
+                <View style={[styles.blob, styles.blobB]} />
+
+                <View style={styles.cardTop}>
+                  <View style={styles.iconBubble}>
+                    <Ionicons name={item.icon as any} size={28} color="#4B2AA8" />
+                  </View>
+                  <View style={styles.badge}>
+                    <Ionicons name="layers" size={12} color="#4B2AA8" />
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardSub}>{item.subtitle}</Text>
+                <Text style={[styles.funLine, { color: item.accent }]}>
+                  {item.funLine}
+                </Text>
+
+                <View style={styles.cardBottom}>
+                  <View style={styles.playBtn}>
+                    <Ionicons name="play" size={16} color="#4B2AA8" />
+                    <Text style={styles.playText}>Play now</Text>
+                  </View>
+                  <View style={styles.rankDot}>
+                    <Text style={styles.rankText}>#{index + 1}</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+
+          {filtered.length === 0 && (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyEmoji}>🔍</Text>
+              <Text style={styles.emptyText}>No game found</Text>
+              <Text style={styles.emptyHint}>Try Word, Match, or Meaning</Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
-
     </SafeAreaView>
-
   );
 };
 
 export default IslamicQuizScreen;
 
 const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: "#F6F7FB",
-  },
-
+  container: { flex: 1, backgroundColor: "#F3F0FF" },
   header: {
-    paddingTop: 35,
-    paddingBottom: 40,
+    paddingTop: 70,
+    paddingBottom: 32,
     alignItems: "center",
+    paddingHorizontal: 16,
   },
-
+  headerRadius: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40 },
+  trophyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 6,
+  },
+  trophy: { fontSize: 26 },
   title: {
     color: "#fff",
-    fontSize: 34,
-    fontWeight: "bold",
-    marginTop: 20,
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: 0.3,
   },
-
   subtitle: {
-    color: "#fff",
-    marginTop: 10,
-    fontSize: 16,
+    color: "#EAE2FF",
+    fontSize: 15,
+    marginTop: 8,
+    fontWeight: "700",
   },
-
-  cardsContainer: {
-    padding: 20,
+  headerPills: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
   },
-
-  card: {
-  borderRadius: 22,
-  padding: 25,
-  alignItems: "center",
-  overflow: "hidden",
-  elevation: 6,
-},
-  cardIcon: {
-    fontSize: 45,
-    marginBottom: 10,
+  pill: {
+    backgroundColor: "rgba(255,255,255,0.22)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
   },
-
-  cardTitle: {
+  pillText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  searchContainer: {
+    marginTop: 18,
+    marginHorizontal: 20,
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#E8E0FF",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: "#333",
+    paddingVertical: 12,
+    fontWeight: "600",
+  },
+  tipBanner: {
+    marginTop: 14,
+    marginHorizontal: 20,
+    backgroundColor: "#FFF7E6",
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#FFE0A3",
+  },
+  tipEmoji: { fontSize: 28 },
+  tipTitle: { color: "#9A6700", fontWeight: "900", fontSize: 14 },
+  tipBody: {
+    color: "#7A5A10",
+    fontWeight: "600",
+    fontSize: 13,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  sectionTitle: {
     fontSize: 22,
-    fontWeight: "bold",
-    color: "#fff",
+    fontWeight: "900",
+    color: "#35158B",
+    marginTop: 22,
+    marginLeft: 22,
   },
-
-  bigTitle: {
-    color: "#fff",
-    fontSize: 30,
-    fontWeight: "bold",
-    marginTop: 20,
+  cards: { paddingHorizontal: 20, paddingTop: 14 },
+  cardWrap: {
+    marginBottom: 16,
+    borderRadius: 26,
+    overflow: "hidden",
+    elevation: 6,
   },
-
-  detailCard: {
-  margin: 20,
-  backgroundColor: "#fff",
-  borderRadius: 28,
-  padding: 25,
-  elevation: 6,
-},
-
-  icon: {
-  fontSize: 75,
-  textAlign: "center",
-  marginBottom: 15,
-},
-  detail: {
-    textAlign: "center",
+  card: {
+    borderRadius: 26,
+    padding: 18,
+    minHeight: 168,
+    overflow: "hidden",
+  },
+  deco: {
+    position: "absolute",
+    opacity: 0.35,
+    fontSize: 22,
+  },
+  deco1: { top: 14, right: 54 },
+  deco2: { top: 48, right: 18, fontSize: 18 },
+  deco3: { bottom: 22, right: 28, fontSize: 20 },
+  blob: {
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 999,
+  },
+  blobA: { width: 90, height: 90, top: -20, right: -16 },
+  blobB: { width: 60, height: 60, bottom: -10, left: -12 },
+  cardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  iconBubble: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  badgeText: { color: "#4B2AA8", fontWeight: "800", fontSize: 12 },
+  cardTitle: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  cardSub: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  funLine: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  cardBottom: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  playBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  playText: { color: "#4B2AA8", fontWeight: "900", fontSize: 14 },
+  rankDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  rankText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+  emptyBox: {
+    alignItems: "center",
+    paddingVertical: 40,
+    backgroundColor: "#fff",
+    borderRadius: 22,
+  },
+  emptyEmoji: { fontSize: 36 },
+  emptyText: {
+    marginTop: 8,
     fontSize: 18,
-    marginTop: 15,
-    color: "#444",
-    lineHeight: 28,
-  },
-
-  comingSoon: {
-    textAlign: "center",
-    marginTop: 25,
-    fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "800",
     color: "#4B2AA8",
   },
-  cardWrapper: {
-  marginBottom: 16,
-},
-
+  emptyHint: { marginTop: 4, color: "#888", fontWeight: "600" },
 });

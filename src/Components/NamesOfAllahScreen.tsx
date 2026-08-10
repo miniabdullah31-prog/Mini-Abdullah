@@ -925,6 +925,7 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+        <BackButton onPress={() => setSelectedName(null)} />
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* HEADER */}
           <ImageBackground
@@ -935,7 +936,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
               borderBottomRightRadius: 40,
             }}
           >
-            <BackButton onPress={() => setSelectedName(null)} />
             <Text style={styles.bigArabic}>{selectedName.arabic}</Text>
             <Text style={styles.bigEnglish}>{selectedName.english}</Text>
           </ImageBackground>
@@ -970,6 +970,7 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <ImageBackground
@@ -980,7 +981,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
             borderBottomRightRadius: 40,
           }}
         >
-          <BackButton onPress={goBack} />
           <Text style={styles.headerTitle}>99 Names of Allah 🌙</Text>
           <Text style={styles.headerSubtitle}>Learn the beautiful names</Text>
 

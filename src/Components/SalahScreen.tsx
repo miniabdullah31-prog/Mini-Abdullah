@@ -154,13 +154,13 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+        <BackButton onPress={() => setSelectedStep(null)} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           {/* HEADER */}
           <ImageBackground
             source={require("../homeAssets/Quotebg.jpg")}
             style={styles.header}
           >
-            <BackButton onPress={() => setSelectedStep(null)} />
             <Text style={styles.bigTitle}>{selectedStep.title}</Text>
           </ImageBackground>
 
@@ -198,6 +198,7 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <ImageBackground
@@ -208,7 +209,6 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
             borderBottomRightRadius: 40,
           }}
         >
-          <BackButton onPress={goBack} />
           <Text style={styles.title}>Learn Salah 🕌</Text>
           <Text style={styles.subtitle}>Step by Step Salah Guide</Text>
 

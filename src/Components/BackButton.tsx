@@ -8,7 +8,7 @@ type Props = {
 
 const BackButton: React.FC<Props> = ({ onPress }) => {
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} pointerEvents="box-none">
       <TouchableOpacity
         activeOpacity={0.7}
         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -25,10 +25,7 @@ export default BackButton;
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
     zIndex: 9999,
     elevation: 9999,
   },

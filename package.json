@@ -10,24 +10,29 @@
     "test": "jest",
     "frontend": "react-native start --reset-cache",
     "backend": "nodemon backend/server.js",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+    "download-quran": "node scripts/download-quran-offline.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "autolink": "node -e \"const {execFileSync}=require('child_process');const fs=require('fs');const path=require('path');const out=path.join('android','build','generated','autolinking');fs.mkdirSync(out,{recursive:true});const json=execFileSync(process.execPath,['node_modules/@react-native-community/cli/build/bin.js','config'],{encoding:'utf8'});fs.writeFileSync(path.join(out,'autolinking.json'),json);console.log('Wrote',path.join(out,'autolinking.json'));\"",
+    "postinstall": "node scripts/fix-native-modules.js"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-native-vector-icons/ionicons": "^13.1.2",
-    "@react-native/new-app-screen": "0.85.2",
-    "adhan": "^4.4.4",
+    "@react-native-voice/voice": "^3.2.4",
     "axios": "^1.18.1",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "npx": "^10.2.2",
     "react": "19.2.3",
     "react-native": "^0.85.2",
+    "react-native-fs": "^2.20.0",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-safe-area-context": "^5.7.0",
+    "react-native-sound-player": "^0.14.5",
+    "react-native-tts": "^4.1.1",
     "react-native-vector-icons": "^10.3.0",
-    "start": "^5.1.0"
+    "react-native-video": "^6.17.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

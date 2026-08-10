@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -9,265 +9,273 @@ import {
   ImageBackground,
   StatusBar,
   TextInput,
+  Linking,
+  Alert,
 } from "react-native";
-
+import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import GradCardDecor from "./GradCardDecor";
+import HeaderSpark from "./HeaderSparkStar";
+import { DUAS, DuaItem } from "../data/duas";
+import { playDuaAudio, stopDuaAudio } from "../services/duaAudio";
 
-type Props = {
-  goBack: () => void;
-};
+type Props = { goBack: () => void };
+type LangMode = "ar" | "ur" | "en";
 
 const DuasScreen: React.FC<Props> = ({ goBack }) => {
   const [search, setSearch] = useState("");
-  const [selectedDua, setSelectedDua] = useState<any>(null);
+  const [selectedDua, setSelectedDua] = useState<DuaItem | null>(null);
+  const [lang, setLang] = useState<LangMode>("ar");
+  const [speaking, setSpeaking] = useState(false);
 
-  const Duas = [
-    {
-      id: 1,
-      title: "Morning Dua",
-      arabic: "أَصْـبَحْنا وَأَصْـبَحَ المـلْكُ لله",
-      translation: "We have entered a new morning and with it all dominion belongs to Allah.",
-      translationUrdu: "ہم نے صبح کی اور صبح کے وقت سارا ملک اللہ ہی کا ہے۔",
-      tafseerEng: "This supplication protects a believer starting their day by submitting all ownership to the Creator.",
-      tafseerUrdu: "یہ دعا دن کا آغاز اللہ کی حاکمیت اور توحید کے اقرار کے ساتھ کرنے اور سارا دن حفاظت میں رہنے کے لیے ہے۔",
-      caption: "Yahan aap is dua se related apna custom caption likh sakti hain.",
-      bg: require("../homeAssets/blueCard.jpg"),
-    },
-    {
-      id: 2,
-      title: "Sleeping Dua",
-      arabic: "اللّهُـمَّ بِاسْمِكَ أَمُوتُ وَأَحْيَا",
-      translation: "O Allah, in Your name I die and I live.",
-      translationUrdu: "اے اللہ! میں تیرے ہی نام کے ساتھ مرتا ہوں اور جیتا ہوں۔",
-      tafseerEng: "Sleep is considered a minor death; this dua surrenders our soul back to Allah before sleeping.",
-      tafseerUrdu: "نیند کو موت کی ایک شکل کہا گیا ہے، اس دعا کے ذریعے ہم سوتے وقت اپنی روح اللہ کے سپرد کرتے ہیں۔",
-      caption: "Yahan aap sleeping dua ka caption likh sakti hain.",
-      bg: require("../homeAssets/purpleCard.jpg"),
-    },
-    {
-      id: 3,
-      title: "Eating Dua",
-      arabic: "بِسْمِ اللهِ وَعَلَى بَرَكَةِ الله",
-      translation: "In the name of Allah and with Allah’s blessings.",
-      translationUrdu: "اللہ کے نام کے ساتھ اور اللہ کی برکت پر (ہم نے کھانا شروع کیا)۔",
-      tafseerEng: "Saying Allah's name over food brings barakah and keeps Shaytan away from sharing your meal.",
-      tafseerUrdu: "کھانے پر اللہ کا نام لینے سے کھانے میں برکت ہوتی ہے اور شیطان اس رزق میں شریک نہیں ہو پاتا۔",
-      caption: "Yahan khane ki dua ka caption aayega.",
-      bg: require("../homeAssets/orangeCard.jpg"),
-    },
-    {
-      id: 4,
-      title: "Travel Dua",
-      arabic: "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ",
-      translation: "Glory is to the One who made this journey easy for us, as we could not do it ourselves.",
-      translationUrdu: "پاک ہے وہ ذات جس نے اس سواری کو ہمارے قابو میں کر دیا جبکہ ہم اسے قابو میں کرنے والے نہ تھے۔",
-      tafseerEng: "A prayer of gratitude acknowledging that human intelligence alone cannot master transportation safely without divine help.",
-      tafseerUrdu: "سفر پر روانہ ہوتے وقت اللہ کا شکر ادا کرنے اور حادثات سے محفوظ رہنے کی بہترین مسنون دعا ہے۔",
-      caption: "Safar ki dua ka caption yahan likhein.",
-      bg: require("../homeAssets/pinkCard.jpg"),
-    },
-    {
-      id: 5,
-      title: "Parents Dua",
-      arabic: "رَّبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا",
-      translation: "My Lord, have mercy upon my parents as they raised me when I was young.",
-      translationUrdu: "اے میرے رب! ان دونوں (والدین) پر رحم فرما جیسا کہ انہوں نے بچپن میں مجھے پالا۔",
-      tafseerEng: "A beautiful Quranic command asking for absolute mercy, health, and forgiveness for our parents.",
-      tafseerUrdu: "قرآن مجید کی یہ آیت والدین کے حقوق، ان کے ساتھ حسن سلوک اور ان کے لیے دعائے رحمت کا بہترین ذریعہ ہے۔",
-      caption: "Walidain ki dua ka caption yahan add hoga.",
-      bg: require("../homeAssets/greencardBg.jpg"),
-    },
-    {
-      id: 6,
-      title: "Before Study",
-      arabic: "رَّبِّ زِدْنِي عِلْمًا",
-      translation: "My Lord, increase me in knowledge.",
-      translationUrdu: "اے میرے رب! میرے علم میں اضافہ فرما۔",
-      tafseerEng: "A short yet immensely powerful prayer from the Quran asking for useful and pure knowledge.",
-      tafseerUrdu: "علم نافع حاصل کرنے، حافظہ تیز کرنے اور پڑھائی میں آسانی کے لیے یہ قرآنی دعا نہایت مفید ہے۔",
-      caption: "Ilm me izafe ki dua ka caption yahan likhein.",
-      bg: require("../homeAssets/cyanCard.jpg"),
-    },
-    {
-      id: 7,
-      title: "Leaving Home",
-      arabic: "بِسْمِ اللهِ تَوَكَّلْتُ عَلَى الله",
-      translation: "In the name of Allah, I trust in Allah, there is no power except with Allah.",
-      translationUrdu: "اللہ کے نام کے ساتھ، میں نے اللہ پر توکل کیا، اور گناہوں سے بچنے کی طاقت اور نیکی کی قوت اللہ ہی کی طرف سے ہے۔",
-      tafseerEng: "When leaving home with this dua, angels respond saying that you have been guided, sufficed, and protected.",
-      tafseerUrdu: "گھر سے نکلتے وقت یہ دعا پڑھنے سے انسان شیطان کے شر سے محفوظ ہو جاتا ہے اور فرشتے اس کی حفاظت کرتے ہیں۔",
-      caption: "Ghar se nikalne ki dua ka caption.",
-      bg: require("../homeAssets/blueCard.jpg"),
-    },
-    {
-      id: 8,
-      title: "Entering Home",
-      arabic: "اللّهُـمَّ إِنِّي أَسْأَلُكَ خَيْرَ الْمَوْلِجِ وَخَيْرَ الْمَخْرَجِ",
-      translation: "O Allah, I ask You for the best entrance and the best exit.",
-      translationUrdu: "اے اللہ! میں تجھ سے داخل ہونے کی اور نکلنے کی بھلائی مانگتا ہوں۔",
-      tafseerEng: "Entering your house with remembrance of Allah brings peace and dispels any negative presence from the household.",
-      tafseerUrdu: "گھر میں داخل ہوتے وقت برکت اور سلامتی حاصل کرنے کے لیے یہ مسنون عمل اور دعا ہے۔",
-      caption: "Ghar me dakhil hone ki dua ka caption.",
-      bg: require("../homeAssets/purpleCard.jpg"),
-    },
-    {
-      id: 9,
-      title: "Dua for Forgiveness",
-      arabic: "رَبَّنَا اغْفِرْ لِي وَلِوَالِدَيَّ وَلِلْمُؤْمِنِينَ يَوْمَ يَقُومُ الْحِسَابُ",
-      translation: "Our Lord, forgive me and my parents and the believers the Day the account is established.",
-      translationUrdu: "اے ہمارے رب! مجھے، میرے والدین کو اور سب ایمان والوں کو اس دن معاف کر دینا جس دن حساب قائم ہو گا۔",
-      tafseerEng: "A comprehensive Quranic prayer of Prophet Ibrahim (AS) looking forward to safety on Judgment Day.",
-      tafseerUrdu: "حضرت ابراہیم علیہ السلام کی یہ خوبصورت دعا اپنی، والدین کی اور تمام امت مسلمہ کی مغفرت کا احاطہ کرتی ہے۔",
-      caption: "Maghfirat ki dua ka caption.",
-      bg: require("../homeAssets/orangeCard.jpg"),
-    },
-    {
-      id: 10,
-      title: "Dua for Protection",
-      arabic: "بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ",
-      translation: "In the name of Allah, with whose name nothing can cause harm on earth nor in heaven.",
-      translationUrdu: "اللہ کے نام کے ساتھ، جس کے نام کی برکت سے زمین اور آسمان میں کوئی چیز نقصان نہیں پہنچا سکتی۔",
-      tafseerEng: "Reciting this in the morning and evening forms a divine shield preventing sudden calamities or illness.",
-      tafseerUrdu: "صبح و شام یہ دعا پڑھنے سے انسان ناگہانی آفتوں، زہریلی چیزوں اور بیماریوں سے اللہ کی پناہ میں آ جاتا ہے۔",
-      caption: "Hifazat ki dua ka caption yahan aayega.",
-      bg: require("../homeAssets/pinkCard.jpg"),
-    },
-  ];
+  useEffect(() => {
+    return () => {
+      stopDuaAudio();
+    };
+  }, []);
 
-  const filteredDuas = Duas.filter((item) =>
-    item.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredDuas = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return DUAS;
+    return DUAS.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.titleUrdu.includes(search.trim()) ||
+        item.arabic.includes(search.trim()),
+    );
+  }, [search]);
 
-  /* ---------------- DUA DETAIL SCREEN ---------------- */
+  const handlePlayAudio = async () => {
+    if (!selectedDua) return;
+    if (speaking) {
+      stopDuaAudio();
+      setSpeaking(false);
+      return;
+    }
+    const ok = await playDuaAudio(selectedDua.audio);
+    setSpeaking(ok);
+    if (ok) {
+      // UI stop-icon window; user can tap again to stop anytime
+      setTimeout(() => setSpeaking(false), 15000);
+    }
+  };
+
+  const openVideoHint = () => {
+    Alert.alert(
+      "Video guide",
+      "Video lesson for this dua will play here. You can link a YouTube lesson later.",
+      [
+        { text: "OK", style: "cancel" },
+        {
+          text: "Open YouTube",
+          onPress: () =>
+            Linking.openURL(
+              `https://www.youtube.com/results?search_query=${encodeURIComponent(
+                selectedDua?.title + " dua",
+              )}`,
+            ),
+        },
+      ],
+    );
+  };
+
+  /* ---------------- DETAIL ---------------- */
   if (selectedDua) {
+    const showMeaning = lang !== "ar";
+    const translation =
+      lang === "ur" ? selectedDua.translationUrdu : selectedDua.translation;
+    const tafseer =
+      lang === "ur" ? selectedDua.tafseerUrdu : selectedDua.tafseerEng;
+
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-          {/* HEADER */}
+        <BackButton
+          onPress={() => {
+            stopDuaAudio();
+            setSpeaking(false);
+            setLang("ar");
+            setSelectedDua(null);
+          }}
+        />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           <ImageBackground
             source={require("../homeAssets/Quotebg.jpg")}
             style={styles.detailHeader}
-            imageStyle={{
-              borderBottomLeftRadius: 40,
-              borderBottomRightRadius: 40,
-            }}
+            imageStyle={styles.headerRadius}
           >
-            <BackButton onPress={() => setSelectedDua(null)} />
-            <Text style={styles.detailTitle}>{selectedDua.title}</Text>
+            <View style={styles.detailTitleRow}>
+              <Text style={styles.detailTitleEn}>{selectedDua.title}</Text>
+              <Text style={styles.detailTitleUr}>{selectedDua.titleUrdu}</Text>
+            </View>
           </ImageBackground>
 
-          {/* DETAIL CARD */}
-          <View style={styles.detailCard}>
-            <Text style={styles.sectionHeading}>Dua 🤲</Text>
-            <Text style={styles.arabicText}>{selectedDua.arabic}</Text>
+          <View style={styles.langRow}>
+            {(["ar", "ur", "en"] as LangMode[]).map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                style={[styles.langChip, lang === mode && styles.langChipActive]}
+                onPress={() => setLang(mode)}
+              >
+                <Text
+                  style={[
+                    styles.langChipText,
+                    lang === mode && styles.langChipTextActive,
+                  ]}
+                >
+                  {mode === "ar" ? "Arabic" : mode === "ur" ? "Urdu" : "English"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-            <Text style={styles.sectionHeading}>Meaning & Translation 🌍</Text>
-            <View style={styles.translationRow}>
-              <Text style={styles.engMeaning}>{selectedDua.translation}</Text>
-              <Text style={styles.urduMeaning}>{selectedDua.translationUrdu}</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.arabicTop}>
+              <Text style={styles.sectionLabel}>Dua</Text>
+              <TouchableOpacity
+                style={[styles.audioBtn, speaking && styles.audioBtnActive]}
+                onPress={handlePlayAudio}
+              >
+                <Ionicons
+                  name={speaking ? "stop" : "volume-high"}
+                  size={16}
+                  color="#fff"
+                />
+              </TouchableOpacity>
             </View>
 
-            {/* AUDIO BUTTON */}
-            <TouchableOpacity style={styles.audioButton}>
-              <Ionicons name="volume-high" size={24} color="#fff" />
-              <Text style={styles.audioText}>Play Audio Recitation</Text>
-            </TouchableOpacity>
+            <Text style={styles.arabicText}>{selectedDua.arabic}</Text>
 
-            {/* TAFSEER & IMPORTANCE */}
-            <Text style={styles.sectionHeading}>Tafseer & Importance 📖</Text>
-            <Text style={styles.tafseerEng}>{selectedDua.tafseerEng}</Text>
-            <Text style={styles.tafseerUrdu}>{selectedDua.tafseerUrdu}</Text>
+            {showMeaning && (
+              <View style={styles.meaningBox}>
+                <Text style={styles.sectionLabel}>
+                  {lang === "ur" ? "ترجمہ و تفسیر" : "Translation & Tafseer"}
+                </Text>
+                <Text
+                  style={[
+                    styles.translationText,
+                    lang === "ur" && styles.urduText,
+                  ]}
+                >
+                  {translation}
+                </Text>
+                <View style={styles.divider} />
+                <Text
+                  style={[
+                    styles.tafseerText,
+                    lang === "ur" && styles.urduText,
+                  ]}
+                >
+                  {tafseer}
+                </Text>
+              </View>
+            )}
 
-            {/* SIMPLE CARD (WITHOUT INTERNAL TEXT) */}
-            <TouchableOpacity 
-              style={styles.simpleCard}
-              activeOpacity={0.8}
-              onPress={() => {
-                // Aap apna video ya koi bhi custom action yahan trigger kar sakti hain
-              }}
+            <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Video</Text>
+            <TouchableOpacity
+              style={styles.videoCard}
+              activeOpacity={0.88}
+              onPress={openVideoHint}
             >
-              <Ionicons name="play-circle" size={45} color="#FF0000" />
+              <LinearGradient
+                colors={selectedDua.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.videoInner}
+              >
+                <View style={styles.playCircle}>
+                  <Ionicons name="play" size={28} color="#5B33C4" />
+                </View>
+                <Text style={styles.videoTitle}>Watch explanation</Text>
+                <Text style={styles.videoSub}>{selectedDua.caption}</Text>
+              </LinearGradient>
             </TouchableOpacity>
-
-            {/* CAPTION UNDERNEATH THE CARD */}
-            <Text style={styles.captionText}>
-              {selectedDua.caption}
-            </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  /* ---------------- MAIN DUA LIST SCREEN ---------------- */
+  /* ---------------- LIST ---------------- */
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* HEADER */}
         <ImageBackground
           source={require("../homeAssets/Quotebg.jpg")}
           style={styles.header}
-          imageStyle={{
-            borderBottomLeftRadius: 40,
-            borderBottomRightRadius: 40,
-          }}
+          imageStyle={styles.headerRadius}
         >
-          <BackButton onPress={goBack} />
-          <Text style={styles.headerTitle}>Daily Duas 🤲</Text>
-          <Text style={styles.headerSubtitle}>Select a dua to learn</Text>
-
-          {/* SEARCH BAR */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={22} color="#777" />
-            <TextInput
-              placeholder="Search dua..."
-              placeholderTextColor="#777"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.input}
-            />
-          </View>
+          <Text style={styles.headerTitle}>Daily Duas</Text>
+          <Text style={styles.headerSubtitle}>
+            Remember Allah in every moment
+          </Text>
+          <HeaderSpark />
         </ImageBackground>
 
-        {/* DUA TITLE CARDS */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={22} color="#777" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search duas..."
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Text style={styles.sectionTitle}>Choose a Dua</Text>
+
         <View style={styles.cardsContainer}>
           {filteredDuas.map((item) => (
             <TouchableOpacity
               key={item.id}
               activeOpacity={0.9}
               style={styles.cardWrapper}
-              onPress={() => setSelectedDua(item)}
+              onPress={() => {
+                setLang("ar");
+                setSelectedDua(item);
+              }}
             >
-              <ImageBackground
-                source={item.bg}
+              <LinearGradient
+                colors={item.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.card}
-                imageStyle={{
-                  borderRadius: 22,
-                }}
               >
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Ionicons name="chevron-forward" size={28} color="#fff" />
-              </ImageBackground>
+                <GradCardDecor />
+                <View style={styles.iconCircle}>
+                  <Ionicons name={item.icon} size={24} color="#fff" />
+                </View>
+                <View style={styles.cardTextCol}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardTitleEn}>{item.title}</Text>
+                    <Text style={styles.cardTitleUr}>{item.titleUrdu}</Text>
+                  </View>
+                  <Text style={styles.cardSubtitle} numberOfLines={1}>
+                    {item.caption}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
+              </LinearGradient>
             </TouchableOpacity>
           ))}
+
+          {filteredDuas.length === 0 && (
+            <Text style={styles.noResultText}>No results found</Text>
+          )}
         </View>
       </ScrollView>
-
-      {/* NAVBAR */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navItem} onPress={goBack}>
-          <Ionicons name="home" size={28} color="#7A3DFF" />
-          <Text style={[styles.navText, { color: "#7A3DFF" }]}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="book" size={28} color="#2FB65D" />
-          <Text style={[styles.navText, { color: "#2FB65D" }]}>Learn</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -275,189 +283,263 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
 export default DuasScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F6F7FB",
-  },
+  container: { flex: 1, backgroundColor: "#F6F7FB" },
   header: {
-    paddingTop: 35,
-    paddingBottom: 35,
+    paddingTop: 70,
+    paddingBottom: 36,
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   detailHeader: {
-    paddingTop: 35,
-    paddingBottom: 50,
+    paddingTop: 70,
+    paddingBottom: 28,
     alignItems: "center",
+    paddingHorizontal: 20,
   },
+  headerRadius: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40 },
   headerTitle: {
     color: "#fff",
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "bold",
-    marginTop: 20,
-  },
-  detailTitle: {
-    color: "#fff",
-    fontSize: 30,
-    fontWeight: "bold",
-    marginTop: 25,
+    marginTop: 8,
   },
   headerSubtitle: {
     color: "#EAE2FF",
-    fontSize: 16,
-    marginTop: 10,
+    fontSize: 15,
+    marginTop: 8,
     fontWeight: "600",
   },
-  searchBar: {
+  detailTitleRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    gap: 10,
+  },
+  detailTitleEn: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "800",
+    flex: 1,
+  },
+  detailTitleUr: {
+    color: "#EAE2FF",
+    fontSize: 20,
+    fontWeight: "700",
+    flex: 1,
+    textAlign: "right",
+  },
+  searchContainer: {
     backgroundColor: "#fff",
-    width: "88%",
-    borderRadius: 20,
+    marginHorizontal: 20,
+    marginTop: -25,
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    height: 54,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    marginTop: 22,
-    height: 58,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
-  input: {
+  searchIcon: { marginRight: 10 },
+  searchInput: {
     flex: 1,
-    marginLeft: 10,
     fontSize: 16,
     color: "#333",
+    fontWeight: "600",
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#35158B",
+    marginTop: 28,
+    marginLeft: 20,
   },
   cardsContainer: {
-    paddingHorizontal: 18,
-    paddingTop: 25,
-    paddingBottom: 120,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    marginTop: 14,
   },
   cardWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
   card: {
-    borderRadius: 22,
-    padding: 24,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    overflow: "hidden",
-    minHeight: 90,
-  },
-  cardTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-  detailCard: {
-    backgroundColor: "#fff",
-    margin: 20,
-    borderRadius: 28,
-    padding: 24,
-    elevation: 6,
-  },
-  sectionHeading: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#4B2AA8",
-    marginBottom: 12,
-    marginTop: 22,
-  },
-  arabicText: {
-    fontSize: 28,
-    color: "#222",
-    textAlign: "right",
-    lineHeight: 52,
-    marginBottom: 15,
-    fontWeight: "700",
-  },
-  translationRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  engMeaning: {
-    fontSize: 16,
-    color: "#333",
-    width: "47%",
-    fontWeight: "600",
-    lineHeight: 24,
-  },
-  urduMeaning: {
-    fontSize: 17,
-    color: "#333",
-    width: "47%",
-    textAlign: "right",
-    fontWeight: "600",
-    lineHeight: 28,
-  },
-  audioButton: {
-    backgroundColor: "#6C4DF7",
-    paddingVertical: 16,
-    borderRadius: 18,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  audioText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
-  simpleCard: {
-    height: 140,
-    backgroundColor: "#F2F3F7",
-    borderColor: "#E2E4E9",
-    borderWidth: 1,
     borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  captionText: {
-    fontSize: 15,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 10,
-    lineHeight: 22,
-    fontStyle: "italic",
-    paddingHorizontal: 10,
-  },
-  tafseerEng: {
-    fontSize: 16,
-    color: "#444",
-    lineHeight: 28,
-    marginBottom: 12,
-  },
-  tafseerUrdu: {
-    fontSize: 17,
-    color: "#444",
-    lineHeight: 32,
-    textAlign: "right",
-  },
-  navbar: {
-    position: "absolute",
-    bottom: 12,
-    left: 15,
-    right: 15,
-    backgroundColor: "#fff",
-    borderRadius: 35,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 14,
-    elevation: 12,
+    gap: 14,
+    overflow: "hidden",
+    position: "relative",
   },
-  navItem: {
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.22)",
     alignItems: "center",
+    justifyContent: "center",
   },
-  navText: {
-    marginTop: 4,
+  cardTextCol: { flex: 1 },
+  cardTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  cardTitleEn: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+    flex: 1,
+  },
+  cardTitleUr: {
+    color: "#F3EEFF",
     fontSize: 14,
     fontWeight: "700",
+    flex: 1,
+    textAlign: "right",
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: "#F3EEFF",
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  noResultText: {
+    textAlign: "center",
+    color: "#777",
+    fontSize: 16,
+    marginTop: 20,
+  },
+  langRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  langChip: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E6DEFF",
+  },
+  langChipActive: { backgroundColor: "#5B33C4", borderColor: "#5B33C4" },
+  langChipText: { color: "#5B33C4", fontWeight: "700", fontSize: 13 },
+  langChipTextActive: { color: "#fff" },
+  detailCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 22,
+    padding: 16,
+    elevation: 3,
+  },
+  arabicTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  sectionLabel: {
+    color: "#5B33C4",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  audioBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#5B33C4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  audioBtnActive: { backgroundColor: "#2E8B57" },
+  arabicText: {
+    fontSize: 26,
+    lineHeight: 46,
+    color: "#1a1a1a",
+    textAlign: "right",
+    writingDirection: "rtl",
+    fontWeight: "700",
+  },
+  meaningBox: {
+    marginTop: 18,
+    backgroundColor: "#FAF8FF",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#EDE7FF",
+  },
+  translationText: {
+    marginTop: 10,
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#333",
+    fontWeight: "600",
+  },
+  tafseerText: {
+    fontSize: 14,
+    lineHeight: 23,
+    color: "#555",
+  },
+  urduText: {
+    textAlign: "right",
+    writingDirection: "rtl",
+    fontSize: 16,
+    lineHeight: 28,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E6DEFF",
+    marginVertical: 12,
+  },
+  videoCard: {
+    marginTop: 10,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  videoInner: {
+    minHeight: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  playCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  videoTitle: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  videoSub: {
+    color: "#F3EEFF",
+    marginTop: 4,
+    fontWeight: "600",
+    fontSize: 12,
+    textAlign: "center",
   },
 });

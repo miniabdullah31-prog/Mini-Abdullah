@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  Dimensions,
 } from "react-native";
 
 type Props = {
@@ -84,8 +83,6 @@ const MiniAbdullahWelcome: React.FC<Props> = ({
 };
 
 export default MiniAbdullahWelcome;
-
-const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
 

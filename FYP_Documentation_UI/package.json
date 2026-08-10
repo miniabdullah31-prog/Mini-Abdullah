@@ -1,0 +1,14 @@
+{
+  "name": "mini-abdullah-fyp-documentation-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Independent HTML/PNG UI pack for Mini Abdullah FYP documentation",
+  "scripts": {
+    "generate": "node scripts/generate-and-capture.js --html-only",
+    "capture": "node scripts/generate-and-capture.js",
+    "build": "npm run capture"
+  },
+  "dependencies": {
+    "puppeteer": "^24.2.0"
+  }
+}
