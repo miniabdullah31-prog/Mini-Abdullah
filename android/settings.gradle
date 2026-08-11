@@ -1,8 +1,27 @@
-pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
-plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+pluginManagement { 
+    includeBuild("../node_modules/@react-native/gradle-plugin") 
+}
+
+plugins { 
+    id("com.facebook.react.settings") 
+}
+
+// Use Node + CLI directly (skip `npx`/`cmd`) — stable on Windows Gradle 9.
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    def root = settings.layout.rootDirectory.dir("../").asFile
+    def cliBin = new File(root, "node_modules/@react-native-community/cli/build/bin.js")
+    def nodeFromEnv = System.getenv("NODE_BINARY")
+    def nodeExecutable = (nodeFromEnv != null && !nodeFromEnv.trim().isEmpty())
+        ? nodeFromEnv
+        : "node"
+    ex.autolinkLibrariesFromCommand(
+        [nodeExecutable, cliBin.absolutePath, "config"],
+        root
+    )
+}
+
 rootProject.name = 'MINIABDULLAH'
+
 include ':app'
+
 includeBuild('../node_modules/@react-native/gradle-plugin')
-include ':react-native-geolocation-service'
-project(':react-native-geolocation-service').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-geolocation-service/android')

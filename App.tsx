@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { LogBox, SafeAreaView } from "react-native";
+import React, { useCallback, useState } from "react";
+import { SafeAreaView } from "react-native";
 
 import SplashScreen from "./src/Components/SplashScreen";
 import OnBoarding from "./src/Components/onBoardingScreens";
@@ -14,63 +14,66 @@ import HomeScreen from "./src/Components/Home";
 import QuranScreen from "./src/Components/QuranScreen";
 import StoriesScreen from "./src/Components/StoriesScreen";
 import DuasScreen from "./src/Components/DuasScreen";
-import ChatbotScreen from "./src/Components/ChatbotScreen"; 
+import ChatbotScreen from "./src/Components/ChatbotScreen";
 import NamesOfAllahScreen from "./src/Components/NamesOfAllahScreen";
-import ActivitiesScreen from "./src/Components/ActivitiesScreen";
 import SalahScreen from "./src/Components/SalahScreen";
 import IslamicQuizScreen from "./src/Components/IslamicQuizScreen";
-import GoodDeedsScreen from "./src/Components/GoodDeedsScreen";
-import LearnScreen from "./src/Components/LearnScreen";
+import DailySunnahScreen from "./src/Components/DailySunnahScreen";
 import ProfileScreen from "./src/Components/ProfileScreen";
+import {
+  isOnboardingDone,
+  markOnboardingDone,
+  markFeatureUsed,
+} from "./src/services/appPrefsStore";
 
 const App = () => {
   const [screen, setScreen] = useState(1);
   const [onboardStep, setOnboardStep] = useState(1);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
 
-  /* ---------------- NAVIGATION FUNCTIONS ---------------- */
-  const goToWelcome = () => { setScreen(10); };
-  const goToHome = () => { setScreen(10); };
-  const goToQuran = () => setScreen(11);
-  const goToStories = () => setScreen(12);
-  const goToDuas = () => setScreen(13);
-  const goToChatbot = () => setScreen(14); 
-  const goToLearn = () => setScreen(15); // Learn Screen Setup
-  const goToNamesOfAllah = () => setScreen(16);
-  const goToActivities = () => setScreen(17);
-  const goToSalah = () => setScreen(18);
-  const goToQuiz = () => setScreen(19);
-  const goToGoodDeeds = () => setScreen(20);
-  const goToProfile = () => setScreen(21);
-  
-  // LearnScreen sub-navigations
-  const goToAqaid = () => setScreen(22);
-  const goToAkhlaq = () => setScreen(23);
-  const goToIbaadat = () => setScreen(24);
-  const goToSeerah = () => setScreen(25);
-  const goToMasail = () => setScreen(26);
-  const goToPillars = () => setScreen(27);
+  const goToWelcome = () => {
+    setScreen(3);
+  };
+  const goToHome = () => {
+    setScreen(10);
+  };
 
-  /* ---------------- GLOBAL BACK FUNCTION ---------------- */
+  const openFeature = useCallback((target: number) => {
+    markFeatureUsed().catch(() => undefined);
+    setScreen(target);
+  }, []);
+
+  const goToQuran = () => openFeature(11);
+  const goToSalah = () => openFeature(12);
+  const goToDailySunnah = () => openFeature(13);
+  const goToStories = () => openFeature(14);
+  const goToDuas = () => openFeature(15);
+  const goToNamesOfAllah = () => openFeature(16);
+  const goToChatbot = () => openFeature(17);
+  const goToQuiz = () => openFeature(18);
+  const goToProfile = () => setScreen(19);
+
+  const finishOnboarding = async () => {
+    try {
+      await markOnboardingDone();
+    } catch {
+      // ignore
+    }
+    goToWelcome();
+  };
+
+  const handleSplashFinish = async () => {
+    try {
+      const done = await isOnboardingDone();
+      setScreen(done ? 3 : 2);
+    } catch {
+      setScreen(2);
+    }
+  };
+
   const goBack = () => {
-    if (
-      screen === 11 ||
-      screen === 12 ||
-      screen === 13 ||
-      screen === 14 || 
-      screen === 15 || // Learn screen back behavior
-      screen === 16 ||
-      screen === 17 ||
-      screen === 18 ||
-      screen === 19 ||
-      screen === 20 ||
-      screen === 21 ||
-      screen === 22 ||
-      screen === 23 ||
-      screen === 24 ||
-      screen === 25 ||
-      screen === 26 ||
-      screen === 27
-    ) {
+    if (screen >= 11 && screen <= 19) {
       setScreen(10);
     } else if (screen === 10) {
       setScreen(3);
@@ -79,27 +82,19 @@ const App = () => {
     }
   };
 
-  /* ---------------- SPLASH TIMER ---------------- */
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setScreen(2);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      {screen === 1 && <SplashScreen onFinish={() => setScreen(2)} />}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
+      {screen === 1 && <SplashScreen onFinish={handleSplashFinish} />}
 
       {screen === 2 && (
         <OnBoarding
           step={onboardStep}
-          onSkip={() => setScreen(3)}
+          onSkip={finishOnboarding}
           next={() => {
             if (onboardStep < 3) {
               setOnboardStep(onboardStep + 1);
             } else {
-              goToWelcome();
+              finishOnboarding();
             }
           }}
         />
@@ -113,16 +108,51 @@ const App = () => {
       )}
 
       {screen === 4 && (
-        <Signup goToLogin={() => setScreen(5)} goToHome={goToHome} goToSuccess={() => setScreen(9)} />
+        <Signup
+          goToLogin={() => setScreen(5)}
+          goToSuccess={() => setScreen(9)}
+        />
       )}
 
       {screen === 5 && (
-        <Login goToSignup={() => setScreen(4)} goToForgot={() => setScreen(6)} goToHome={goToHome} />
+        <Login
+          goToSignup={() => setScreen(4)}
+          goToForgot={() => setScreen(6)}
+          goToHome={goToHome}
+        />
       )}
 
-      {screen === 6 && <ForgotPassword goToLogin={() => setScreen(5)} />}
-      {screen === 7 && <OtpVerification goToNewPassword={() => setScreen(8)} />}
-      {screen === 8 && <ResetPassword goToLogin={() => setScreen(5)} />}
+      {screen === 6 && (
+        <ForgotPassword
+          goToLogin={() => setScreen(5)}
+          goToOtp={(email) => {
+            setResetEmail(email);
+            setResetOtp("");
+            setScreen(7);
+          }}
+        />
+      )}
+      {screen === 7 && (
+        <OtpVerification
+          email={resetEmail}
+          goToNewPassword={(otp) => {
+            setResetOtp(otp);
+            setScreen(8);
+          }}
+          goToLogin={() => setScreen(5)}
+        />
+      )}
+      {screen === 8 && (
+        <ResetPassword
+          email={resetEmail}
+          otp={resetOtp}
+          goToLogin={() => {
+            setResetEmail("");
+            setResetOtp("");
+            setScreen(5);
+          }}
+        />
+      )}
       {screen === 9 && <SuccessScreen goToHome={goToHome} />}
 
       {screen === 10 && (
@@ -130,41 +160,26 @@ const App = () => {
           goToQuran={goToQuran}
           goToStories={goToStories}
           goToDuas={goToDuas}
-          goToChatbot={goToChatbot} 
+          goToChatbot={goToChatbot}
           goToNamesOfAllah={goToNamesOfAllah}
           goToSalah={goToSalah}
           goToQuiz={goToQuiz}
-          goToGoodDeeds={goToGoodDeeds}
-          goToLearn={goToLearn} // Prop added in Home
+          goToDailySunnah={goToDailySunnah}
           goToProfile={goToProfile}
         />
       )}
 
       {screen === 11 && <QuranScreen goBack={goBack} />}
-      {screen === 12 && <StoriesScreen goBack={goBack} />}
-      {screen === 13 && <DuasScreen goBack={goBack} />}
-      {screen === 14 && <ChatbotScreen goBack={goBack} />}
-
-      {screen === 15 && (
-        <LearnScreen
-          goToHome={goToHome}
-          goToQuran={goToQuran}
-          goToAqaid={goToAqaid}
-          goToAkhlaq={goToAkhlaq}
-          goToIbaadat={goToIbaadat}
-          goToSeerah={goToSeerah}
-          goToPillars={goToMasail}
-          goToMasail={goToMasail}
-          goToProfile={goToProfile}
-        />
-      )}
-      
+      {screen === 12 && <SalahScreen goBack={goBack} />}
+      {screen === 13 && <DailySunnahScreen goBack={goBack} />}
+      {screen === 14 && <StoriesScreen goBack={goBack} />}
+      {screen === 15 && <DuasScreen goBack={goBack} />}
       {screen === 16 && <NamesOfAllahScreen goBack={goBack} />}
-      {screen === 17 && <ActivitiesScreen goBack={goBack} />}
-      {screen === 18 && <SalahScreen goBack={goBack} />}
-      {screen === 19 && <IslamicQuizScreen goBack={goBack} />}
-      {screen === 20 && <GoodDeedsScreen goBack={goBack} />}
-      {screen === 21 && <ProfileScreen goToHome={goToHome} goToLearn={goToLearn} goToWelcome={goToWelcome} />}
+      {screen === 17 && <ChatbotScreen goBack={goBack} />}
+      {screen === 18 && <IslamicQuizScreen goBack={goBack} />}
+      {screen === 19 && (
+        <ProfileScreen goToHome={goToHome} goToWelcome={goToWelcome} />
+      )}
     </SafeAreaView>
   );
 };

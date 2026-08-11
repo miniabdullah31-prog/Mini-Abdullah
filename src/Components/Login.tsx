@@ -8,7 +8,13 @@ import {
   TouchableOpacity,
   ImageBackground,
   Modal,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
+import { API_BASE_URL } from "../config/api";
+import { upsertSavedAccount } from "../services/accountStore";
+import { resetChatMemoryCache } from "../services/chatHistoryStore";
 
 type Props = {
   goToSignup: () => void;
@@ -21,29 +27,19 @@ const Login: React.FC<Props> = ({
   goToForgot,
   goToHome,
 }) => {
-
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
 
-  const [modalVisible,
-    setModalVisible] = useState(false);
-
-  const [modalTitle,
-    setModalTitle] = useState("");
-
-  const [modalMessage,
-    setModalMessage] = useState("");
-
-  const [isSuccess,
-    setIsSuccess] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const showCustomAlert = (
     title: string,
     message: string,
-    success = false
+    success = false,
   ) => {
-
     setModalTitle(title);
     setModalMessage(message);
     setIsSuccess(success);
@@ -51,229 +47,210 @@ const Login: React.FC<Props> = ({
   };
 
   const handleLogin = async () => {
-
     if (!email || !password) {
-
-      showCustomAlert(
-        "Error",
-        "Please fill all fields ❌"
-      );
-
+      showCustomAlert("Error", "Please fill all fields ❌");
       return;
     }
 
     try {
-
-      const res = await fetch(
-        "http://10.0.2.2:5000/api/auth/login",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
 
       const data = await res.json();
 
       if (data.success) {
+        try {
+          if (!data.token || !data.user?.email) {
+            showCustomAlert("Error", "Login response incomplete ❌");
+            return;
+          }
 
-        showCustomAlert(
-          "Success 🎉",
-          "Login successful",
-          true
-        );
+          const saved = await upsertSavedAccount({
+            id: data.user.id,
+            name: data.user.name || "User",
+            email: data.user.email,
+            token: data.token,
+          });
+
+          if (!saved.ok) {
+            showCustomAlert(
+              "Limit reached",
+              "Max 4 IDs at a time. Delete one from Profile to login another.",
+            );
+            return;
+          }
+          resetChatMemoryCache();
+        } catch {
+          // ignore storage errors
+        }
+
+        showCustomAlert("Success 🎉", "Login successful", true);
 
         setTimeout(() => {
-
           setModalVisible(false);
           goToHome();
-
         }, 600);
-
       } else {
-
-        showCustomAlert(
-          "Error",
-          data.message ||
-            "Login failed ❌"
-        );
+        showCustomAlert("Error", data.message || "Login failed ❌");
       }
-
     } catch (error) {
+      const detail =
+        error instanceof Error ? error.message : String(error);
 
       showCustomAlert(
         "Server Error",
-        "Could not connect to backend"
+        `Could not connect to backend\n${API_BASE_URL}\n${detail}`,
       );
     }
   };
 
   return (
-
-    <ImageBackground
-      source={require("../assets/successScreen.png")}
-      style={styles.container}
-      resizeMode="cover"
-    >
-
-      <View style={styles.card}>
-
-        <Image
-          source={require("../assets/miniAbdullah.png")}
-          style={styles.image}
-        />
-
-        <Text style={styles.title}>
-          Welcome Back
-        </Text>
-
-        <Text style={styles.subtitle}>
-          Continue your Islamic learning journey
-        </Text>
-
-        <TextInput
-          placeholder="Email Address"
-          placeholderTextColor="#888"
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-
-        <TextInput
-          placeholder="Password"
-          placeholderTextColor="#888"
-          style={styles.input}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        <TouchableOpacity
-          onPress={goToForgot}
-        >
-
-          <Text style={styles.forgotPassword}>
-            Forgot Password?
-          </Text>
-
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}
-        >
-
-          <Text style={styles.buttonText}>
-            Login
-          </Text>
-
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={goToSignup}
-        >
-
-          <Text style={styles.signupLink}>
-            New here? Create account
-          </Text>
-
-        </TouchableOpacity>
-
-      </View>
-
-      {/* CUSTOM MODAL */}
-
-      <Modal
-        transparent
-        visible={modalVisible}
-        animationType="fade"
+    <View style={styles.root}>
+      <ImageBackground
+        source={require("../assets/successScreen.png")}
+        style={styles.container}
+        imageStyle={styles.bgImage}
+        resizeMode="cover"
       >
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={styles.card}>
+              <Image
+                source={require("../assets/miniAbdullah.png")}
+                style={styles.image}
+              />
 
-        <View style={styles.modalOverlay}>
+              <Text style={styles.title}>Welcome Back</Text>
 
-          <View style={styles.modalBox}>
-
-            <Text
-              style={[
-                styles.modalTitle,
-                {
-                  color: isSuccess
-                    ? "#4BB543"
-                    : "#ff3b30",
-                },
-              ]}
-            >
-
-              {modalTitle}
-
-            </Text>
-
-            <Text style={styles.modalMessage}>
-
-              {modalMessage}
-
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.modalButton,
-                {
-                  backgroundColor:
-                    isSuccess
-                      ? "#6c4df7"
-                      : "#ff3b30",
-                },
-              ]}
-
-              onPress={() =>
-                setModalVisible(false)
-              }
-            >
-
-              <Text
-                style={
-                  styles.modalButtonText
-                }
-              >
-                OK
+              <Text style={styles.subtitle}>
+                Continue your Islamic learning journey
               </Text>
 
-            </TouchableOpacity>
+              <TextInput
+                placeholder="Email Address"
+                placeholderTextColor="#888"
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
 
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#888"
+                style={styles.input}
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+
+              <TouchableOpacity onPress={goToForgot}>
+                <Text style={styles.forgotPassword}>Forgot Password?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                <Text style={styles.buttonText}>Login</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={goToSignup}>
+                <Text style={styles.signupLink}>New here? Create account</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        <Modal transparent visible={modalVisible} animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color: isSuccess ? "#4BB543" : "#ff3b30",
+                  },
+                ]}
+              >
+                {modalTitle}
+              </Text>
+
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor: isSuccess ? "#6c4df7" : "#ff3b30",
+                  },
+                ]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-        </View>
-
-      </Modal>
-
-    </ImageBackground>
+        </Modal>
+      </ImageBackground>
+    </View>
   );
 };
 
 export default Login;
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#ffffff",
+  },
 
   container: {
     flex: 1,
-    justifyContent: "center",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#2a1654",
+  },
+
+  bgImage: {
+    backgroundColor: "#2a1654",
+  },
+
+  flex: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-start",
     alignItems: "center",
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 48,
   },
 
   card: {
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "white",
+    backgroundColor: "#ffffff",
     padding: 30,
     borderRadius: 32,
     alignItems: "center",
@@ -386,5 +363,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-
 });

@@ -8,109 +8,145 @@ import {
   TouchableOpacity,
   ImageBackground,
   Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
+import { API_BASE_URL } from "../config/api";
 
 type Props = {
+  email: string;
+  otp: string;
   goToLogin: () => void;
 };
 
-const ResetPassword: React.FC<Props> = ({
-  goToLogin,
-}) => {
+const ResetPassword: React.FC<Props> = ({ email, otp, goToLogin }) => {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [password, setPassword] =
-    useState("");
-
-  const [
-    confirmPassword,
-    setConfirmPassword,
-  ] = useState("");
-
-  const handleUpdatePassword = () => {
-
+  const handleUpdatePassword = async () => {
     if (!password || !confirmPassword) {
+      Alert.alert("Error", "Please fill all fields");
+      return;
+    }
 
-      Alert.alert(
-        "Error",
-        "Please fill all fields"
-      );
-
+    if (password.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters");
       return;
     }
 
     if (password !== confirmPassword) {
-
-      Alert.alert(
-        "Error",
-        "Passwords do not match"
-      );
-
+      Alert.alert("Error", "Passwords do not match");
       return;
     }
 
-    Alert.alert(
-      "Success",
-      "Password updated successfully"
-    );
+    if (!email || !otp) {
+      Alert.alert(
+        "Error",
+        "Reset session missing. Please start from Forgot Password.",
+      );
+      return;
+    }
 
-    goToLogin();
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          otp,
+          newPassword: password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        Alert.alert(
+          "Success",
+          data.message || "Password updated successfully",
+          [{ text: "OK", onPress: goToLogin }],
+        );
+      } else {
+        Alert.alert("Error", data.message || "Could not update password");
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      Alert.alert(
+        "Server Error",
+        `Could not connect to backend\n${API_BASE_URL}\n${detail}`,
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-
     <ImageBackground
       source={require("../assets/bg.png")}
       style={styles.container}
       resizeMode="cover"
     >
-
-      <View style={styles.card}>
-
-        <Image
-          source={require("../assets/miniAbdullah.png")}
-          style={styles.image}
-        />
-
-        <Text style={styles.title}>
-          Create New Password
-        </Text>
-
-        <Text style={styles.description}>
-          Your new password must be different
-          from the previous one
-        </Text>
-
-        <TextInput
-          placeholder="New Password"
-          placeholderTextColor="#777"
-          secureTextEntry
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        <TextInput
-          placeholder="Confirm Password"
-          placeholderTextColor="#777"
-          secureTextEntry
-          style={styles.input}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleUpdatePassword}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
+          <View style={styles.card}>
+            <Image
+              source={require("../assets/miniAbdullah.png")}
+              style={styles.image}
+            />
 
-          <Text style={styles.buttonText}>
-            Update Password
-          </Text>
+            <Text style={styles.title}>Create New Password</Text>
 
-        </TouchableOpacity>
+            <Text style={styles.description}>
+              Your new password must be different from the previous one
+            </Text>
 
-      </View>
+            <TextInput
+              placeholder="New Password"
+              placeholderTextColor="#777"
+              secureTextEntry
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              editable={!loading}
+            />
 
+            <TextInput
+              placeholder="Confirm Password"
+              placeholderTextColor="#777"
+              secureTextEntry
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!loading}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleUpdatePassword}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Update Password</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ImageBackground>
   );
 };
@@ -118,9 +154,17 @@ const ResetPassword: React.FC<Props> = ({
 export default ResetPassword;
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
+    backgroundColor: "#2a1654",
+  },
+
+  flex: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -177,6 +221,12 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: "center",
     marginTop: 8,
+    minHeight: 54,
+    justifyContent: "center",
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 
   buttonText: {
@@ -184,5 +234,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-
 });

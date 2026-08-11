@@ -7,72 +7,135 @@ import {
   ScrollView,
   TouchableOpacity,
   ImageBackground,
-  Image,
   StatusBar,
   TextInput,
 } from "react-native";
-
+import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
-
-/* IMPORT BACK BUTTON */
 import BackButton from "./BackButton";
+import GradCardDecor from "./GradCardDecor";
+import HeaderSpark from "./HeaderSparkStar";
+import ReadQuranScreen from "./ReadQuranScreen";
+import ParaAyahsScreen from "./ParaAyahsScreen";
+import NooraniQaidaScreen from "./NooraniQaidaScreen";
+import TajweedScreen from "./TajweedScreen";
+import QuranWordsScreen from "./QuranWordsScreen";
+import DailySurahsScreen from "./DailySurahsScreen";
 
 type Props = {
   goBack: () => void;
 };
 
+type QuranView =
+  | "hub"
+  | "qaida"
+  | "tajweed"
+  | "read"
+  | "para"
+  | "words"
+  | "surahs";
+
+const HUB_CARDS = [
+  {
+    id: 1,
+    title: "Noorani Qaida",
+    subtitle: "All letters · meaning & audio",
+    icon: "book" as const,
+    colors: ["#1F8A70", "#3CB89A"],
+  },
+  {
+    id: 2,
+    title: "Tajweed",
+    subtitle: "Simple rules · EN & UR",
+    icon: "musical-notes" as const,
+    colors: ["#2E6BFF", "#5AA0FF"],
+  },
+  {
+    id: 3,
+    title: "Read Quran",
+    subtitle: "30 paras · offline · Sudais",
+    icon: "book-outline" as const,
+    colors: ["#0F9B8E", "#34D1BF"],
+  },
+  {
+    id: 4,
+    title: "Common Quran Words",
+    subtitle: "هو · لهم · تثنیہ · جمع",
+    icon: "text" as const,
+    colors: ["#7B2FF7", "#5B33C4"],
+  },
+  {
+    id: 5,
+    title: "Daily Surahs",
+    subtitle: "Short surahs · play ayah audio",
+    icon: "moon" as const,
+    colors: ["#C45C2A", "#E08A4F"],
+  },
+];
+
 const QuranScreen: React.FC<Props> = ({ goBack }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [view, setView] = useState<QuranView>("hub");
+  const [selectedJuz, setSelectedJuz] = useState<number | null>(null);
 
-  const quranCards = [
-    {
-      id: 1,
-      title: "Noorani Qaida",
-      subtitle: "Learn Arabic letters & pronunciation",
-      image: require("../homeAssets/quran.png"),
-      bg: require("../homeAssets/greencardBg.jpg"),
-    },
-    {
-      id: 2,
-      title: "Tajweed",
-      subtitle: "Learn Quran reading rules beautifully",
-      image: require("../homeAssets/moon.png"),
-      bg: require("../homeAssets/blueCard.jpg"),
-    },
-    {
-      id: 3,
-      title: "Read Quran",
-      subtitle: "Read & listen to beautiful Quran recitation",
-      image: require("../homeAssets/quran.png"),
-      bg: require("../homeAssets/cyanCard.jpg"), // 🌟 Background Picture Changed here
-    },
-    {
-      id: 4,
-      title: "Quran Words",
-      subtitle: "Common Quran root words & meanings",
-      image: require("../homeAssets/star.png"),
-      bg: require("../homeAssets/purpleCard.jpg"),
-    },
-    {
-      id: 5,
-      title: "Daily Surahs",
-      subtitle: "Memorize short surahs easily",
-      image: require("../homeAssets/mosque4.png"),
-      bg: require("../homeAssets/orangeCard.jpg"),
-    },
-  ];
-
-  // Filter cards based on search query
-  const filteredCards = quranCards.filter((card) =>
-    card.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCards = HUB_CARDS.filter((card) =>
+    card.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const handleCardPress = (cardId: number) => {
+    if (cardId === 1) setView("qaida");
+    if (cardId === 2) setView("tajweed");
+    if (cardId === 3) setView("read");
+    if (cardId === 4) setView("words");
+    if (cardId === 5) setView("surahs");
+  };
+
+  if (view === "para" && selectedJuz != null) {
+    return (
+      <ParaAyahsScreen
+        juzNumber={selectedJuz}
+        goBack={() => {
+          setSelectedJuz(null);
+          setView("read");
+        }}
+      />
+    );
+  }
+
+  if (view === "read") {
+    return (
+      <ReadQuranScreen
+        goBack={() => setView("hub")}
+        onOpenJuz={(juzNumber) => {
+          setSelectedJuz(juzNumber);
+          setView("para");
+        }}
+      />
+    );
+  }
+
+  if (view === "qaida") {
+    return <NooraniQaidaScreen goBack={() => setView("hub")} />;
+  }
+
+  if (view === "tajweed") {
+    return <TajweedScreen goBack={() => setView("hub")} />;
+  }
+
+  if (view === "words") {
+    return <QuranWordsScreen goBack={() => setView("hub")} />;
+  }
+
+  if (view === "surahs") {
+    return <DailySurahsScreen goBack={() => setView("hub")} />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* TOP HEADER */}
         <ImageBackground
           source={require("../homeAssets/Quotebg.jpg")}
           style={styles.header}
@@ -81,22 +144,13 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
             borderBottomRightRadius: 40,
           }}
         >
-          {/* REUSABLE BACK BUTTON */}
-          <BackButton onPress={goBack} />
-
-          <Image
-            source={require("../homeAssets/quran.png")}
-            style={styles.headerImage}
-          />
-
           <Text style={styles.headerTitle}>Quran Learning</Text>
-
           <Text style={styles.headerSubtitle}>
-            Learn Quran in an easy way 🌙
+            Offline · clear · light to use
           </Text>
+          <HeaderSpark />
         </ImageBackground>
 
-        {/* 🔍 SEARCH BAR SECTION (Replaced Progress Card) */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={22} color="#777" style={styles.searchIcon} />
           <TextInput
@@ -113,35 +167,37 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
           )}
         </View>
 
-        {/* SECTION TITLE */}
-        <Text style={styles.sectionTitle}>Start Learning 📚</Text>
+        <Text style={styles.sectionTitle}>Start Learning</Text>
 
-        {/* CARDS */}
         <View style={styles.cardsContainer}>
           {filteredCards.map((item) => (
             <TouchableOpacity
               key={item.id}
               activeOpacity={0.9}
               style={styles.cardWrapper}
+              onPress={() => handleCardPress(item.id)}
             >
-              <ImageBackground
-                source={item.bg}
+              <LinearGradient
+                colors={item.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.card}
-                imageStyle={{
-                  borderRadius: 28,
-                }}
               >
-                <Image source={item.image} style={styles.cardImage} />
-
-                <Text style={styles.cardTitle}>{item.title}</Text>
-
-                <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-              </ImageBackground>
+                <GradCardDecor />
+                <View style={styles.iconCircle}>
+                  <Ionicons name={item.icon} size={24} color="#fff" />
+                </View>
+                <View style={styles.cardTextCol}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
+              </LinearGradient>
             </TouchableOpacity>
           ))}
 
           {filteredCards.length === 0 && (
-            <Text style={styles.noResultText}>No results found 🔍</Text>
+            <Text style={styles.noResultText}>No results found</Text>
           )}
         </View>
       </ScrollView>
@@ -157,29 +213,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#F6F7FB",
   },
   header: {
-    paddingTop: 30,
-    paddingBottom: 40,
+    paddingTop: 70,
+    paddingBottom: 36,
     alignItems: "center",
-  },
-  headerImage: {
-    width: 150,
-    height: 150,
-    resizeMode: "contain",
-    marginTop: 30,
+    paddingHorizontal: 20,
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "bold",
-    marginTop: 10,
+    marginTop: 8,
   },
   headerSubtitle: {
     color: "#EAE2FF",
-    fontSize: 17,
-    marginTop: 10,
+    fontSize: 15,
+    marginTop: 8,
     fontWeight: "600",
   },
-  /* Custom Beautiful Floating Search Bar Styles */
   searchContainer: {
     backgroundColor: "#fff",
     marginHorizontal: 20,
@@ -205,46 +255,59 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sectionTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#35158B",
-    marginTop: 30,
+    marginTop: 28,
     marginLeft: 20,
   },
   cardsContainer: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    marginTop: 20,
+    marginTop: 14,
   },
   cardWrapper: {
-    marginBottom: 20,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
   card: {
-    borderRadius: 28,
-    padding: 20,
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 14,
     overflow: "hidden",
+    position: "relative",
   },
-  cardImage: {
-    width: 120,
-    height: 120,
-    resizeMode: "contain",
-    marginBottom: 12,
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTextCol: {
+    flex: 1,
   },
   cardTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "800",
     color: "#fff",
-    textAlign: "center",
   },
   cardSubtitle: {
-    fontSize: 15,
-    color: "#fff",
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 22,
+    fontSize: 13,
+    color: "#F3EEFF",
+    marginTop: 4,
+    lineHeight: 18,
     fontWeight: "600",
-    width: "85%",
   },
   noResultText: {
     textAlign: "center",
