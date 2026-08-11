@@ -28,19 +28,57 @@ import {
   ensureAccountsHydrated,
   getActiveAccountEmail,
 } from "../services/accountStore";
-import {
+import {
   getRatingStars,
   setRatingStars,
   isRatingPromptPending,
   dismissRatingPrompt,
+  setCachedPrayerTimes,
 } from "../services/appPrefsStore";
+import { refreshPrayerNotificationsIfEnabled } from "../services/notificationService";
 import RateAppModal from "./RateAppModal";
 
 const FALLBACK_QUOTE = {
-  arabic: "╪Ñ┘É┘å┘Ä┘æ ┘à┘Ä╪╣┘Ä ╪º┘ä┘Æ╪╣┘Å╪│┘Æ╪▒┘É ┘è┘Å╪│┘Æ╪▒┘ï╪º",
+  arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
   quote: "Indeed, with hardship comes ease.",
   source: "Surah Ash-Sharh (94:6)",
 };
+
+type FlatPrayerTimes = {
+  fajr?: string;
+  dhuhr?: string;
+  asr?: string;
+  maghrib?: string;
+  isha?: string;
+};
+
+/** Normalize nested or flat prayer API shapes into a flat times object. */
+function normalizePrayerTimes(result: any): FlatPrayerTimes | null {
+  const raw = result?.prayerTimes ?? result;
+  if (!raw || typeof raw !== "object") return null;
+  const nested = raw.prayerTimes && typeof raw.prayerTimes === "object"
+    ? raw.prayerTimes
+    : raw;
+  const fajr = nested.fajr || nested.Fajr;
+  const dhuhr = nested.dhuhr || nested.Dhuhr;
+  const asr = nested.asr || nested.Asr;
+  const maghrib = nested.maghrib || nested.Maghrib;
+  const isha = nested.isha || nested.Isha;
+  if (!fajr && !dhuhr && !asr && !maghrib && !isha) return null;
+  return { fajr, dhuhr, asr, maghrib, isha };
+}
+
+async function cacheAndRefreshPrayerNotifs(
+  city: string,
+  times: FlatPrayerTimes,
+) {
+  try {
+    await setCachedPrayerTimes({ city, ...times });
+    await refreshPrayerNotificationsIfEnabled();
+  } catch {
+    // never block prayer UI on notification errors
+  }
+}
 
 type Props = {
   goToQuran: () => void;
@@ -73,7 +111,7 @@ const Home: React.FC<Props> = ({
   const [manualCityModal, setManualCityModal] = useState(false);
   const [manualCity, setManualCity] = useState("");
   const [dailyQuote, setDailyQuote] = useState(FALLBACK_QUOTE);
-  const [displayName, setDisplayName] = useState("Friend");
+  const [displayName, setDisplayName] = useState("Friend");
   const [ratingVisible, setRatingVisible] = useState(false);
   const [savedStars, setSavedStars] = useState(0);
 
@@ -105,7 +143,7 @@ const Home: React.FC<Props> = ({
         const rawName = account?.name?.trim() || accounts[0]?.name?.trim() || "";
         const first = rawName.split(/\s+/)[0];
         if (active) {
-          setDisplayName(first || "Friend");
+          setDisplayName(first || "Friend");
         }
 
         const stars = await getRatingStars();
@@ -140,16 +178,11 @@ const Home: React.FC<Props> = ({
 
       setCurrentCity(result.city);
 
-      const times = result.prayerTimes;
+      const times = normalizePrayerTimes(result);
       if (times) {
-        setPrayerTimes({
-          fajr: times.fajr,
-          dhuhr: times.dhuhr,
-          asr: times.asr,
-          maghrib: times.maghrib,
-          isha: times.isha,
-        });
+        setPrayerTimes(times);
         setShowPrayerTimes(true);
+        await cacheAndRefreshPrayerNotifs(result.city || "Current Location", times);
       } else {
         throw new Error("No prayer times data found");
       }
@@ -177,16 +210,11 @@ const Home: React.FC<Props> = ({
       const result: any = await getPrayerTimesByCity(city);
       setCurrentCity(result.city);
 
-      const times = result.prayerTimes;
+      const times = normalizePrayerTimes(result);
       if (times) {
-        setPrayerTimes({
-          fajr: times.fajr,
-          dhuhr: times.dhuhr,
-          asr: times.asr,
-          maghrib: times.maghrib,
-          isha: times.isha,
-        });
+        setPrayerTimes(times);
         setShowPrayerTimes(true);
+        await cacheAndRefreshPrayerNotifs(result.city || city, times);
       } else {
         throw new Error("City timings data is empty");
       }
@@ -324,12 +352,12 @@ const Home: React.FC<Props> = ({
                   source={require("../homeAssets/moon.png")}
                   style={styles.smallIcon}
                 />
-                <Text style={styles.quoteBadge}>Γ£¿ Daily Islamic Quote Γ£¿</Text>
+                <Text style={styles.quoteBadge}>Daily Islamic Quote</Text>
               </View>
               {!!dailyQuote.arabic && (
                 <Text style={styles.arabicText}>{dailyQuote.arabic}</Text>
               )}
-              <Text style={styles.translation}>ΓÇ£{dailyQuote.quote}ΓÇ¥</Text>
+              <Text style={styles.translation}>"{dailyQuote.quote}"</Text>
               {!!dailyQuote.source && (
                 <Text style={styles.surah}>{dailyQuote.source}</Text>
               )}

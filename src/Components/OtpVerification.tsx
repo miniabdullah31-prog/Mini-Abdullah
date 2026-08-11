@@ -16,6 +16,7 @@ import {
   Platform,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import { useFormScroll } from "../hooks/useFormScroll";
 
 type Props = {
   email: string;
@@ -30,6 +31,8 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const inputRefs = useRef<Array<TextInput | null>>([]);
+  const { scrollRef, onCardLayout, registerField, scrollToField } =
+    useFormScroll();
 
   const handleChange = (text: string, index: number) => {
     const digit = text.replace(/[^0-9]/g, "").slice(-1);
@@ -131,85 +134,110 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
   };
 
   return (
-    <ImageBackground
-      source={require("../assets/bg.png")}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+    <View style={styles.root}>
+      <ImageBackground
+        source={require("../assets/bg.png")}
+        style={styles.container}
+        imageStyle={styles.bgImage}
+        resizeMode="cover"
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
         >
-          <View style={styles.card}>
-            <Image
-              source={require("../assets/miniAbdullah.png")}
-              style={styles.image}
-            />
-
-            <Text style={styles.title}>Verify Account</Text>
-
-            <Text style={styles.description}>
-              Enter the 6-digit code sent to your email
-            </Text>
-
-            <View style={styles.otpContainer}>
-              {otp.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => {
-                    inputRefs.current[index] = ref;
-                  }}
-                  style={styles.otpInput}
-                  maxLength={1}
-                  keyboardType="number-pad"
-                  value={digit}
-                  onChangeText={(text) => handleChange(text, index)}
-                  onKeyPress={(e) => handleKeyPress(e, index)}
-                  editable={!loading && !resending}
-                  selectTextOnFocus
-                />
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleVerify}
-              disabled={loading || resending}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View
+              style={styles.card}
+              onLayout={(e) => onCardLayout(e.nativeEvent.layout.y)}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Verify</Text>
-              )}
-            </TouchableOpacity>
+              <Image
+                source={require("../assets/miniAbdullah.png")}
+                style={styles.image}
+              />
 
-            <Text style={styles.resendText}>
-              Didn’t receive code?{" "}
-              <Text
-                style={[styles.resend, resending && styles.resendDisabled]}
-                onPress={handleResend}
-              >
-                {resending ? "Sending…" : "Resend"}
+              <Text style={styles.title}>Verify Account</Text>
+
+              <Text style={styles.description}>
+                Enter the 6-digit code sent to your email
               </Text>
-            </Text>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+
+              <View
+                style={styles.otpContainer}
+                onLayout={(e) => registerField("otp", e.nativeEvent.layout.y)}
+              >
+                {otp.map((digit, index) => (
+                  <TextInput
+                    key={index}
+                    ref={(ref) => {
+                      inputRefs.current[index] = ref;
+                    }}
+                    style={styles.otpInput}
+                    maxLength={1}
+                    keyboardType="number-pad"
+                    value={digit}
+                    onChangeText={(text) => handleChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    onFocus={() => scrollToField("otp")}
+                    editable={!loading && !resending}
+                    selectTextOnFocus
+                  />
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleVerify}
+                disabled={loading || resending}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Verify</Text>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.resendText}>
+                Didn’t receive code?{" "}
+                <Text
+                  style={[styles.resend, resending && styles.resendDisabled]}
+                  onPress={handleResend}
+                >
+                  {resending ? "Sending…" : "Resend"}
+                </Text>
+              </Text>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ImageBackground>
+    </View>
   );
 };
 
 export default OtpVerification;
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#ffffff",
+  },
+
   container: {
     flex: 1,
+    backgroundColor: "#2a1654",
+  },
+
+  bgImage: {
     backgroundColor: "#2a1654",
   },
 
@@ -219,15 +247,17 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 220,
   },
 
   card: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "#ffffff",
     borderRadius: 32,
     paddingVertical: 32,
     paddingHorizontal: 20,

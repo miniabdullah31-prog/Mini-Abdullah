@@ -14,7 +14,7 @@ import {
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
 import { QURAN_WORDS, QuranWord } from "../data/quranWords";
-import { speakArabic, stopSpeaking } from "../services/quranTts";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = { goBack: () => void };
 
@@ -68,7 +68,7 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
               <Text style={styles.mainArabic}>{selected.arabic}</Text>
               <TouchableOpacity
                 style={styles.audioBtn}
-                onPress={() => speakArabic(selected.arabic)}
+                onPress={() => speakArabicFemale(selected.arabic)}
               >
                 <Ionicons name="volume-high" size={18} color="#fff" />
               </TouchableOpacity>
@@ -90,7 +90,7 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
                 <Text style={styles.formArabic}>{row.value}</Text>
                 <TouchableOpacity
                   style={styles.audioBtnSmall}
-                  onPress={() => speakArabic(row.value)}
+                  onPress={() => speakArabicFemale(row.value)}
                 >
                   <Ionicons name="volume-high" size={15} color="#fff" />
                 </TouchableOpacity>
@@ -148,7 +148,7 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
             </View>
             <TouchableOpacity
               style={styles.audioBtnSmall}
-              onPress={() => speakArabic(item.arabic)}
+              onPress={() => speakArabicFemale(item.arabic)}
             >
               <Ionicons name="volume-high" size={15} color="#fff" />
             </TouchableOpacity>

@@ -5,7 +5,12 @@ const submitSupport = async (req, res) => {
   try {
     const { name, email, message, type } = req.body;
 
-    if (!email || !String(email).trim()) {
+    // Prefer authenticated identity over client-supplied email
+    const authEmail = req.user?.email ? String(req.user.email).trim() : "";
+    const bodyEmail = email && String(email).trim() ? String(email).trim() : "";
+    const resolvedEmail = authEmail || bodyEmail;
+
+    if (!resolvedEmail) {
       return res.json({
         success: false,
         message: "Email is required",
@@ -27,8 +32,8 @@ const submitSupport = async (req, res) => {
       });
     }
 
-    const cleanEmail = String(email).trim().toLowerCase();
-    const cleanName = (name && String(name).trim()) || "Guest";
+    const cleanEmail = resolvedEmail.toLowerCase();
+    const cleanName = (name && String(name).trim()) || "User";
     const cleanType = type === "feedback" ? "feedback" : "support";
 
     const saved = await SupportMessage.create({

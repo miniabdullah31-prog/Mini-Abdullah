@@ -47,6 +47,18 @@ backend/.env
 **/.env
 !.env.example
 !backend/.env.example
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.p12
+*.key
+*.secret
+**/credentials.json
+**/serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+**/secrets/
 
 # fastlane
 #
@@ -80,6 +92,12 @@ backend/.env
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Crash / debug dumps (do not commit)
+android/hs_err_pid*.log
+android/replay_pid*.log
+debug-screen*.png
+debug-ui*.xml
 
 # Large redundant screenshot archive (individual PNGs are committed)
 FYP_Documentation_UI/screenshots/ss mini abdullah screens.zip

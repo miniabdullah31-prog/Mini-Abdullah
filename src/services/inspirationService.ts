@@ -3,8 +3,8 @@ import { API_BASE_URL } from "../config/api";
 
 const DEFAULT_BASE_URL = API_BASE_URL;
 
-/** Must match backend — one quote every 24 hours. */
-export const QUOTE_ROTATION_MS = 24 * 60 * 60 * 1000;
+/** Must match backend — one quote every 1 hour. */
+export const QUOTE_ROTATION_MS = 60 * 60 * 1000;
 
 export type DailyInspiration = {
   arabic: string;

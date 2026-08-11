@@ -1,29 +1,20 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const router = express.Router();
+const authMiddleware = require("../middleware/authMiddleware");
 const { chat } = require("../controllers/chatController");
 
-const hits = new Map();
-const WINDOW_MS = 60 * 1000;
-const MAX_HITS = 30;
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many messages. Please wait a moment.",
+  },
+});
 
-function chatRateLimit(req, res, next) {
-  const key = req.ip || "unknown";
-  const now = Date.now();
-  const bucket = hits.get(key) || [];
-  const recent = bucket.filter((t) => now - t < WINDOW_MS);
-
-  if (recent.length >= MAX_HITS) {
-    return res.status(429).json({
-      success: false,
-      message: "Too many messages. Please wait a moment.",
-    });
-  }
-
-  recent.push(now);
-  hits.set(key, recent);
-  next();
-}
-
-router.post("/", chatRateLimit, chat);
+router.post("/", authMiddleware, chatLimiter, chat);
 
 module.exports = router;

@@ -15,7 +15,7 @@ import {
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
 import { TAJWEED_RULES } from "../data/tajweed";
-import { speakArabic, stopSpeaking } from "../services/quranTts";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = { goBack: () => void };
 
@@ -94,7 +94,7 @@ const TajweedScreen: React.FC<Props> = ({ goBack }) => {
                     <Text style={styles.example}>{item.example}</Text>
                     <TouchableOpacity
                       style={styles.audioBtn}
-                      onPress={() => speakArabic(item.example)}
+                      onPress={() => speakArabicFemale(item.example)}
                     >
                       <Ionicons name="volume-high" size={16} color="#fff" />
                     </TouchableOpacity>

@@ -12,7 +12,7 @@ import {
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
 import { QAIDA_LESSONS } from "../data/nooraniQaida";
-import { speakArabic, stopSpeaking } from "../services/quranTts";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = { goBack: () => void };
 
@@ -48,7 +48,7 @@ const NooraniQaidaScreen: React.FC<Props> = ({ goBack }) => {
               <Text style={styles.letterArabic}>{item.arabic}</Text>
               <TouchableOpacity
                 style={styles.audioBtn}
-                onPress={() => speakArabic(item.arabic)}
+                onPress={() => speakArabicFemale(item.arabic)}
               >
                 <Ionicons name="volume-high" size={18} color="#fff" />
               </TouchableOpacity>

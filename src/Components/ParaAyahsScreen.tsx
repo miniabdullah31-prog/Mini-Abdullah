@@ -18,7 +18,7 @@ import {
   QuranAyah,
   TranslationLang,
 } from "../services/quranService";
-import { playSudaisAyah, stopSudaisAudio } from "../services/quranAudio";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = {
   juzNumber: number;
@@ -51,20 +51,18 @@ const ParaAyahsScreen: React.FC<Props> = ({ juzNumber, goBack }) => {
   useEffect(() => {
     loadJuz();
     return () => {
-      stopSudaisAudio();
+      stopSpeaking();
     };
   }, [loadJuz]);
 
   const handlePlay = async (ayah: QuranAyah) => {
     if (playingId === ayah.id) {
-      stopSudaisAudio();
+      stopSpeaking();
       setPlayingId(null);
       return;
     }
-    const ok = await playSudaisAyah(ayah.id, ayah.audioUrl);
-    if (ok) {
-      setPlayingId(ayah.id);
-    }
+    setPlayingId(ayah.id);
+    await speakArabicFemale(ayah.arabic);
   };
 
   const renderAyah = ({ item }: { item: QuranAyah }) => {
@@ -124,7 +122,7 @@ const ParaAyahsScreen: React.FC<Props> = ({ juzNumber, goBack }) => {
       >
         <BackButton
           onPress={() => {
-            stopSudaisAudio();
+            stopSpeaking();
             goBack();
           }}
         />

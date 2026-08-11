@@ -15,7 +15,7 @@ import BackButton from "./BackButton";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DAILY_SUNNAHS, DailySunnah } from "../data/dailySunnahs";
-import { speakArabic, stopSpeaking } from "../services/quranTts";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = { goBack: () => void };
 type LangMode = "ur" | "en";
@@ -83,7 +83,7 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
                 <View style={styles.arabicRow}>
                   <TouchableOpacity
                     style={styles.audioBtn}
-                    onPress={() => speakArabic(selected.arabic || "")}
+                    onPress={() => speakArabicFemale(selected.arabic || "")}
                   >
                     <Ionicons name="volume-high" size={16} color="#fff" />
                   </TouchableOpacity>

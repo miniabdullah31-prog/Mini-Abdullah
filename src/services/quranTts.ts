@@ -1,9 +1,125 @@
 import Tts from "react-native-tts";
 
+type SpeakOptions = {
+  /** Prefer a female voice when available (Names of Allah, etc.). */
+  preferFemale?: boolean;
+  /** Language hint: Arabic name → ar-SA; transliteration fallback → en-US. */
+  language?: "ar-SA" | "ar" | "en-US";
+};
+
+type TtsVoice = {
+  id: string;
+  name?: string;
+  language?: string;
+  gender?: string;
+  quality?: number;
+};
+
+function isFemaleVoice(voice: TtsVoice): boolean {
+  const gender = String(voice.gender || "").toLowerCase();
+  if (gender === "female" || gender === "f") return true;
+  if (gender === "male" || gender === "m") return false;
+  const blob = `${voice.name || ""} ${voice.id || ""}`.toLowerCase();
+  if (
+    /male|man\b|boy|david|mark|daniel|thomas|alex|fred|bruce|ravi|googleuk|network/.test(
+      blob,
+    ) &&
+    !/female|woman|girl/.test(blob)
+  ) {
+    return false;
+  }
+  return /female|woman|girl|samantha|karen|moira|tessa|fiona|veena|zira|susan|hazel|serena|allison|ava|salli|joanna|ivy|kimberly|kendra|nicole|emma|amy|aria|jenny|natasha|helen|lisa|laila|hoda|salma/.test(
+    blob,
+  );
+}
+
+function langMatches(voiceLang: string | undefined, wanted: string): boolean {
+  if (!voiceLang) return false;
+  const a = voiceLang.toLowerCase().replace("_", "-");
+  const b = wanted.toLowerCase().replace("_", "-");
+  if (a === b) return true;
+  return a.split("-")[0] === b.split("-")[0];
+}
+
+async function listVoices(): Promise<TtsVoice[]> {
+  try {
+    const voices = (await Tts.voices()) as TtsVoice[];
+    return Array.isArray(voices) ? voices : [];
+  } catch {
+    return [];
+  }
+}
+
+async function pickVoice(
+  preferredLangs: string[],
+  femaleOnly: boolean,
+): Promise<string | null> {
+  const voices = await listVoices();
+  if (!voices.length) return null;
+
+  const pool = femaleOnly ? voices.filter(isFemaleVoice) : voices;
+  for (const lang of preferredLangs) {
+    const match = pool.find((v) => langMatches(v.language, lang));
+    if (match?.id) return match.id;
+  }
+  if (femaleOnly && pool[0]?.id) return pool[0].id;
+  if (!femaleOnly) {
+    for (const lang of preferredLangs) {
+      const match = voices.find((v) => langMatches(v.language, lang));
+      if (match?.id) return match.id;
+    }
+    return voices[0]?.id || null;
+  }
+  return null;
+}
+
+async function applyLanguage(language: string) {
+  try {
+    await Tts.setDefaultLanguage(language);
+  } catch {
+    try {
+      await Tts.setDefaultLanguage(language.startsWith("ar") ? "ar" : "en-US");
+    } catch {
+      // device may not ship requested voice; still attempt speak
+    }
+  }
+}
+
+async function applyVoiceId(voiceId: string | null) {
+  if (!voiceId) return;
+  try {
+    await Tts.setDefaultVoice(voiceId);
+  } catch {
+    // ignore
+  }
+}
+
+async function configureVoice(options?: SpeakOptions) {
+  const preferFemale = !!options?.preferFemale;
+  const language = options?.language || "ar-SA";
+  const langOrder =
+    language === "en-US"
+      ? ["en-US", "en", "ar-SA", "ar"]
+      : ["ar-SA", "ar", "en-US", "en"];
+
+  await applyLanguage(language);
+
+  if (preferFemale) {
+    const femaleId = await pickVoice(langOrder, true);
+    await applyVoiceId(femaleId);
+  }
+
+  try {
+    await Tts.setDefaultRate(0.42);
+  } catch {
+    // ignore
+  }
+}
+
 /**
- * Speak Arabic with device TTS (best-effort language selection).
+ * Speak Arabic with device TTS — female voice by default (kids pronunciation).
  */
-export async function speakArabic(text: string) {
+export async function speakArabic(text: string, options?: SpeakOptions) {
   const value = (text || "").trim();
   if (!value) return;
 
@@ -13,14 +129,36 @@ export async function speakArabic(text: string) {
     // ignore
   }
 
+  const preferFemale = options?.preferFemale !== false;
+
+  await configureVoice({
+    preferFemale,
+    language: options?.language || "ar-SA",
+  });
+
   try {
-    await Tts.setDefaultLanguage("ar-SA");
+    await Tts.speak(value);
   } catch {
-    try {
-      await Tts.setDefaultLanguage("ar");
-    } catch {
-      // device may not ship Arabic voice; still attempt speak
-    }
+    // ignore TTS failures so UI never crashes
+  }
+}
+
+/**
+ * Speak Names of Allah pronunciation with a female voice when available.
+ * Prefers an Arabic female voice for the Arabic name; otherwise a female
+ * English voice for the transliteration; last resort is any Arabic voice.
+ */
+export async function speakArabicFemale(
+  arabicText: string,
+  transliteration?: string,
+) {
+  const arabic = (arabicText || "").trim();
+  const english = (transliteration || "").trim();
+
+  try {
+    await Tts.stop();
+  } catch {
+    // ignore
   }
 
   try {
@@ -29,10 +167,52 @@ export async function speakArabic(text: string) {
     // ignore
   }
 
-  try {
-    await Tts.speak(value);
-  } catch {
-    // ignore TTS failures so UI never crashes
+  const femaleAr = await pickVoice(["ar-SA", "ar"], true);
+  if (arabic && femaleAr) {
+    await applyLanguage("ar-SA");
+    await applyVoiceId(femaleAr);
+    try {
+      await Tts.speak(arabic);
+      return;
+    } catch {
+      // fall through
+    }
+  }
+
+  const femaleEn = await pickVoice(["en-US", "en"], true);
+  if (english && femaleEn) {
+    await applyLanguage("en-US");
+    await applyVoiceId(femaleEn);
+    try {
+      await Tts.speak(english);
+      return;
+    } catch {
+      // fall through
+    }
+  }
+
+  // Last resort: Arabic (or transliteration) with best available voice
+  if (arabic) {
+    await applyLanguage("ar-SA");
+    const anyAr = await pickVoice(["ar-SA", "ar"], false);
+    await applyVoiceId(anyAr);
+    try {
+      await Tts.speak(arabic);
+      return;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (english) {
+    await applyLanguage("en-US");
+    const anyEn = await pickVoice(["en-US", "en"], false);
+    await applyVoiceId(anyEn);
+    try {
+      await Tts.speak(english);
+    } catch {
+      // ignore
+    }
   }
 }
 

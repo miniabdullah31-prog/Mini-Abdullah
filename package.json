@@ -28,6 +28,7 @@
     "react-native": "^0.85.2",
     "react-native-fs": "^2.20.0",
     "react-native-linear-gradient": "^2.8.3",
+    "react-native-notify-kit": "^10.5.0",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-sound-player": "^0.14.5",
     "react-native-tts": "^4.1.1",

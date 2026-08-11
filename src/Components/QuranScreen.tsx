@@ -53,7 +53,7 @@ const HUB_CARDS = [
   {
     id: 3,
     title: "Read Quran",
-    subtitle: "30 paras · offline · Sudais",
+    subtitle: "30 paras · offline · female voice",
     icon: "book-outline" as const,
     colors: ["#0F9B8E", "#34D1BF"],
   },

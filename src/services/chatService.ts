@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
+import { getActiveAuthToken } from "./accountStore";
 
 const DEFAULT_BASE_URL = API_BASE_URL;
 
@@ -14,10 +15,18 @@ export async function sendChatMessage(
   baseURL = DEFAULT_BASE_URL,
 ) {
   try {
+    const token = await getActiveAuthToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await axios.post(
       `${baseURL}/api/chat`,
       { message, history },
-      { timeout: 45000 },
+      { timeout: 45000, headers },
     );
 
     if (!response.data?.success || !response.data?.data?.reply) {
@@ -26,7 +35,11 @@ export async function sendChatMessage(
 
     return response.data.data.reply as string;
   } catch (error: any) {
+    const status = error?.response?.status;
     const apiMessage = error?.response?.data?.message;
+    if (status === 401) {
+      throw new Error(apiMessage || "Please log in again to use the chatbot.");
+    }
     if (apiMessage) {
       throw new Error(apiMessage);
     }

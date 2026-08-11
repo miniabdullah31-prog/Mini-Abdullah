@@ -24,7 +24,13 @@ import {
   logoutCurrentAccount,
   switchToAccount,
 } from "../services/accountStore";
-import { getRatingStars, setRatingStars } from "../services/appPrefsStore";
+import {
+  getRatingStars,
+  setRatingStars,
+  getNotificationsEnabled,
+  setNotificationsEnabled,
+} from "../services/appPrefsStore";
+import { syncNotificationsFromPreference } from "../services/notificationService";
 import { resetChatMemoryCache } from "../services/chatHistoryStore";
 import { API_BASE_URL } from "../config/api";
 import RateAppModal from "./RateAppModal";
@@ -66,11 +72,39 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
     setRatingStarsState(stars);
   }, []);
 
+  const refreshNotificationsPref = useCallback(async () => {
+    try {
+      const on = await getNotificationsEnabled();
+      setNotifications(on);
+    } catch {
+      // keep default
+    }
+  }, []);
+
+  const handleNotificationsChange = useCallback(async (value: boolean) => {
+    setNotifications(value);
+    try {
+      await setNotificationsEnabled(value);
+      const ok = await syncNotificationsFromPreference(value);
+      if (value && !ok) {
+        setNotifications(false);
+        await setNotificationsEnabled(false);
+        Alert.alert(
+          "Notifications",
+          "Permission was not granted. Turn on notifications in system settings to get prayer and learning reminders.",
+        );
+      }
+    } catch {
+      // never crash Profile on notification errors
+    }
+  }, []);
+
   // Refresh when Profile screen mounts (screen-number navigation)
   useEffect(() => {
     refreshAccounts();
     refreshRating();
-  }, [refreshAccounts, refreshRating]);
+    refreshNotificationsPref();
+  }, [refreshAccounts, refreshRating, refreshNotificationsPref]);
 
   const handleAddProfilePress = () => {
     setAddProfileModal(true);
@@ -191,9 +225,16 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
     setSupportSending(true);
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (active?.token) {
+        headers.Authorization = `Bearer ${active.token}`;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/support`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           name: active?.name || "User",
           email,
@@ -279,9 +320,16 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
     setFeedbackSending(true);
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (active?.token) {
+        headers.Authorization = `Bearer ${active.token}`;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/support`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           name: active?.name || "User",
           email,
@@ -471,7 +519,10 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
 
         <View style={styles.card}>
           <Text style={styles.label}>Notifications</Text>
-          <Switch value={notifications} onValueChange={setNotifications} />
+          <Switch
+            value={notifications}
+            onValueChange={handleNotificationsChange}
+          />
         </View>
 
         <TouchableOpacity

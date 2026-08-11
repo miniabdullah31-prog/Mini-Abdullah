@@ -79,6 +79,24 @@ export async function getActiveAccountEmail(): Promise<string | null> {
   }
 }
 
+/** JWT for the active account (Authorization Bearer). */
+export async function getActiveAuthToken(): Promise<string | null> {
+  try {
+    const accounts = await ensureAccountsHydrated();
+    const activeEmail = await getActiveAccountEmail();
+    const fromList =
+      (activeEmail && accounts.find((a) => a.email === activeEmail)) ||
+      accounts.find((a) => !!a.token) ||
+      null;
+    if (fromList?.token?.trim()) return fromList.token.trim();
+
+    const legacy = await AsyncStorage.getItem("token");
+    return legacy && legacy.trim() ? legacy.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Stable key for per-account local data (chat, prefs, quiz). */
 export async function resolveUserKey(): Promise<string> {
   try {
@@ -237,4 +255,58 @@ export async function ensureAccountsHydrated(): Promise<SavedAccount[]> {
   }
 
   return [];
+}
+
+/** Client-side JWT exp check (no signature verify). Missing/opaque → treat as valid. */
+function isJwtExpired(token: string): boolean {
+  try {
+    const parts = String(token || "").split(".");
+    if (parts.length < 2) return false;
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const json =
+      typeof atob === "function"
+        ? atob(padded)
+        : Buffer.from(padded, "base64").toString("utf8");
+    const payload = JSON.parse(json);
+    if (typeof payload?.exp !== "number") return false;
+    return payload.exp * 1000 <= Date.now();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Active account with a usable token for cold-start restore.
+ * Clears session (and empty tokens) if JWT is past exp.
+ */
+export async function getRestorableActiveAccount(): Promise<SavedAccount | null> {
+  try {
+    const accounts = await ensureAccountsHydrated();
+    if (accounts.length === 0) return null;
+
+    const activeEmail = await getActiveAccountEmail();
+    let account =
+      (activeEmail && accounts.find((a) => a.email === activeEmail)) ||
+      accounts.find((a) => !!a.token) ||
+      null;
+
+    if (!account?.token) return null;
+
+    if (isJwtExpired(account.token)) {
+      const cleared = accounts
+        .map((a) =>
+          a.email === account!.email ? { ...a, token: "" } : a,
+        )
+        .filter((a) => !!a.token);
+      await saveAccounts(cleared);
+      await clearSessionKeys();
+      return null;
+    }
+
+    await writeActiveSession(account);
+    return account;
+  } catch {
+    return null;
+  }
 }

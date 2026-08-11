@@ -31,9 +31,10 @@ const quotes = [
 ];
 
 /**
- * One quote per calendar day (changes every 24 hours), then cycles.
+ * One quote per hour (changes every 1 hour), then cycles.
+ * Change QUOTE_ROTATION_MS to adjust rotation (e.g. 24 * 60 * 60 * 1000 for daily).
  */
-const QUOTE_ROTATION_MS = 24 * 60 * 60 * 1000;
+const QUOTE_ROTATION_MS = 60 * 60 * 1000;
 
 function getQuoteIndex() {
   return Math.floor(Date.now() / QUOTE_ROTATION_MS) % quotes.length;

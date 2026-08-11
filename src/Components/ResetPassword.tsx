@@ -14,6 +14,7 @@ import {
   Platform,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import { useFormScroll } from "../hooks/useFormScroll";
 
 type Props = {
   email: string;
@@ -25,6 +26,8 @@ const ResetPassword: React.FC<Props> = ({ email, otp, goToLogin }) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const { scrollRef, onCardLayout, registerField, scrollToField } =
+    useFormScroll();
 
   const handleUpdatePassword = async () => {
     if (!password || !confirmPassword) {
@@ -86,76 +89,113 @@ const ResetPassword: React.FC<Props> = ({ email, otp, goToLogin }) => {
   };
 
   return (
-    <ImageBackground
-      source={require("../assets/bg.png")}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+    <View style={styles.root}>
+      <ImageBackground
+        source={require("../assets/bg.png")}
+        style={styles.container}
+        imageStyle={styles.bgImage}
+        resizeMode="cover"
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
         >
-          <View style={styles.card}>
-            <Image
-              source={require("../assets/miniAbdullah.png")}
-              style={styles.image}
-            />
-
-            <Text style={styles.title}>Create New Password</Text>
-
-            <Text style={styles.description}>
-              Your new password must be different from the previous one
-            </Text>
-
-            <TextInput
-              placeholder="New Password"
-              placeholderTextColor="#777"
-              secureTextEntry
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              editable={!loading}
-            />
-
-            <TextInput
-              placeholder="Confirm Password"
-              placeholderTextColor="#777"
-              secureTextEntry
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              editable={!loading}
-            />
-
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleUpdatePassword}
-              disabled={loading}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View
+              style={styles.card}
+              onLayout={(e) => onCardLayout(e.nativeEvent.layout.y)}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Update Password</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+              <Image
+                source={require("../assets/miniAbdullah.png")}
+                style={styles.image}
+              />
+
+              <Text style={styles.title}>Create New Password</Text>
+
+              <Text style={styles.description}>
+                Your new password must be different from the previous one
+              </Text>
+
+              <View
+                style={styles.fieldWrap}
+                onLayout={(e) =>
+                  registerField("password", e.nativeEvent.layout.y)
+                }
+              >
+                <TextInput
+                  placeholder="New Password"
+                  placeholderTextColor="#777"
+                  secureTextEntry
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!loading}
+                  onFocus={() => scrollToField("password")}
+                />
+              </View>
+
+              <View
+                style={styles.fieldWrap}
+                onLayout={(e) =>
+                  registerField("confirm", e.nativeEvent.layout.y)
+                }
+              >
+                <TextInput
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#777"
+                  secureTextEntry
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  editable={!loading}
+                  onFocus={() => scrollToField("confirm")}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleUpdatePassword}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Update Password</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ImageBackground>
+    </View>
   );
 };
 
 export default ResetPassword;
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#ffffff",
+  },
+
   container: {
     flex: 1,
+    backgroundColor: "#2a1654",
+  },
+
+  bgImage: {
     backgroundColor: "#2a1654",
   },
 
@@ -165,20 +205,26 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 220,
   },
 
   card: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "#ffffff",
     borderRadius: 32,
     paddingVertical: 32,
     paddingHorizontal: 24,
     alignItems: "center",
     elevation: 8,
+  },
+
+  fieldWrap: {
+    width: "100%",
   },
 
   image: {

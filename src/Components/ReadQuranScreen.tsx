@@ -73,7 +73,7 @@ const ReadQuranScreen: React.FC<Props> = ({ goBack, onOpenJuz }) => {
 
           <Text style={styles.headerTitle}>Read Quran</Text>
           <Text style={styles.headerSubtitle}>
-            30 Paras · Offline text · Sudais audio
+            30 Paras · Offline text · female voice
           </Text>
           <HeaderSpark />
         </ImageBackground>

@@ -15,6 +15,7 @@ import {
 import { API_BASE_URL } from "../config/api";
 import { upsertSavedAccount } from "../services/accountStore";
 import { resetChatMemoryCache } from "../services/chatHistoryStore";
+import { useFormScroll } from "../hooks/useFormScroll";
 
 type Props = {
   goToSignup: () => void;
@@ -34,6 +35,9 @@ const Login: React.FC<Props> = ({
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const { scrollRef, onCardLayout, registerField, scrollToField } =
+    useFormScroll();
 
   const showCustomAlert = (
     title: string,
@@ -89,7 +93,8 @@ const Login: React.FC<Props> = ({
           }
           resetChatMemoryCache();
         } catch {
-          // ignore storage errors
+          showCustomAlert("Error", "Could not save login session ❌");
+          return;
         }
 
         showCustomAlert("Success 🎉", "Login successful", true);
@@ -122,16 +127,22 @@ const Login: React.FC<Props> = ({
       >
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
         >
           <ScrollView
+            ref={scrollRef}
             style={styles.flex}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
-            <View style={styles.card}>
+            <View
+              style={styles.card}
+              onLayout={(e) => onCardLayout(e.nativeEvent.layout.y)}
+            >
               <Image
                 source={require("../assets/miniAbdullah.png")}
                 style={styles.image}
@@ -143,25 +154,41 @@ const Login: React.FC<Props> = ({
                 Continue your Islamic learning journey
               </Text>
 
-              <TextInput
-                placeholder="Email Address"
-                placeholderTextColor="#888"
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View
+                style={styles.fieldWrap}
+                onLayout={(e) =>
+                  registerField("email", e.nativeEvent.layout.y)
+                }
+              >
+                <TextInput
+                  placeholder="Email Address"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => scrollToField("email")}
+                />
+              </View>
 
-              <TextInput
-                placeholder="Password"
-                placeholderTextColor="#888"
-                style={styles.input}
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              />
+              <View
+                style={styles.fieldWrap}
+                onLayout={(e) =>
+                  registerField("password", e.nativeEvent.layout.y)
+                }
+              >
+                <TextInput
+                  placeholder="Password"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => scrollToField("password")}
+                />
+              </View>
 
               <TouchableOpacity onPress={goToForgot}>
                 <Text style={styles.forgotPassword}>Forgot Password?</Text>
@@ -244,7 +271,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     paddingTop: 48,
-    paddingBottom: 48,
+    paddingBottom: 220,
   },
 
   card: {
@@ -255,6 +282,10 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: "center",
     elevation: 8,
+  },
+
+  fieldWrap: {
+    width: "100%",
   },
 
   image: {

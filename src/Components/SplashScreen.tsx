@@ -2,17 +2,40 @@ import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 
 type SplashScreenProps = {
-  onFinish: () => void;
+  /** Resolve next screen while splash shows; navigation only after min duration + this. */
+  resolveNext: () => Promise<number>;
+  onNavigate: (screen: number) => void;
 };
 
-const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onFinish();
-    }, 1000);
+const MIN_SPLASH_MS = 1000;
 
-    return () => clearTimeout(timer);
-  }, [onFinish]);
+const SplashScreen: React.FC<SplashScreenProps> = ({
+  resolveNext,
+  onNavigate,
+}) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [, next] = await Promise.all([
+          new Promise<void>((resolve) => setTimeout(resolve, MIN_SPLASH_MS)),
+          resolveNext(),
+        ]);
+        if (!cancelled) {
+          onNavigate(next);
+        }
+      } catch {
+        if (!cancelled) {
+          onNavigate(2);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolveNext, onNavigate]);
 
   return (
     <View style={styles.container}>

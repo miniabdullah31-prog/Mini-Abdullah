@@ -17,8 +17,7 @@ import BackButton from "./BackButton";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DAILY_SURAHS, DailySurah } from "../data/dailySurahs";
-import { getSudaisAudioUrl } from "../data/juzMeta";
-import { playSudaisAyah, stopSudaisAudio } from "../services/quranAudio";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = { goBack: () => void };
 type TranslationMode = "off" | "en" | "ur";
@@ -39,7 +38,7 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
 
   useEffect(() => {
     return () => {
-      stopSudaisAudio();
+      stopSpeaking();
     };
   }, []);
 
@@ -55,14 +54,14 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
     );
   }, [search]);
 
-  const handlePlay = async (globalId: number) => {
+  const handlePlay = async (globalId: number, arabic: string) => {
     if (playingId === globalId) {
-      stopSudaisAudio();
+      stopSpeaking();
       setPlayingId(null);
       return;
     }
-    const ok = await playSudaisAyah(globalId, getSudaisAudioUrl(globalId));
-    if (ok) setPlayingId(globalId);
+    setPlayingId(globalId);
+    await speakArabicFemale(arabic);
   };
 
   if (selected) {
@@ -76,7 +75,7 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
         >
           <BackButton
             onPress={() => {
-              stopSudaisAudio();
+              stopSpeaking();
               setPlayingId(null);
               setSelected(null);
               setTranslation("off");
@@ -122,7 +121,7 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
                     styles.audioBtn,
                     playingId === ayah.globalId && styles.audioBtnActive,
                   ]}
-                  onPress={() => handlePlay(ayah.globalId)}
+                  onPress={() => handlePlay(ayah.globalId, ayah.arabic)}
                 >
                   <Ionicons
                     name={playingId === ayah.globalId ? "stop" : "play"}

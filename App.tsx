@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native";
 
 import SplashScreen from "./src/Components/SplashScreen";
@@ -25,12 +25,18 @@ import {
   markOnboardingDone,
   markFeatureUsed,
 } from "./src/services/appPrefsStore";
+import { getRestorableActiveAccount } from "./src/services/accountStore";
+import { hydrateNotificationsIfEnabled } from "./src/services/notificationService";
 
 const App = () => {
   const [screen, setScreen] = useState(1);
   const [onboardStep, setOnboardStep] = useState(1);
   const [resetEmail, setResetEmail] = useState("");
   const [resetOtp, setResetOtp] = useState("");
+
+  useEffect(() => {
+    hydrateNotificationsIfEnabled().catch(() => undefined);
+  }, []);
 
   const goToWelcome = () => {
     setScreen(3);
@@ -63,14 +69,23 @@ const App = () => {
     goToWelcome();
   };
 
-  const handleSplashFinish = async () => {
+  /** Hydrate prefs + accounts; restore Home if session exists. */
+  const resolvePostSplashScreen = useCallback(async (): Promise<number> => {
     try {
-      const done = await isOnboardingDone();
-      setScreen(done ? 3 : 2);
+      const [onboardingDone, session] = await Promise.all([
+        isOnboardingDone(),
+        getRestorableActiveAccount(),
+      ]);
+
+      if (session?.token) {
+        return 10;
+      }
+
+      return onboardingDone ? 3 : 2;
     } catch {
-      setScreen(2);
+      return 2;
     }
-  };
+  }, []);
 
   const goBack = () => {
     if (screen >= 11 && screen <= 19) {
@@ -84,7 +99,12 @@ const App = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
-      {screen === 1 && <SplashScreen onFinish={handleSplashFinish} />}
+      {screen === 1 && (
+        <SplashScreen
+          resolveNext={resolvePostSplashScreen}
+          onNavigate={setScreen}
+        />
+      )}
 
       {screen === 2 && (
         <OnBoarding

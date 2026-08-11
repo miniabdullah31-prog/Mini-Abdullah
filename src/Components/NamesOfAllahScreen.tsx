@@ -13,6 +13,7 @@ import {
 
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = {
   goBack: () => void;
@@ -925,7 +926,12 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-        <BackButton onPress={() => setSelectedName(null)} />
+        <BackButton
+          onPress={() => {
+            stopSpeaking();
+            setSelectedName(null);
+          }}
+        />
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* HEADER */}
           <ImageBackground
@@ -951,10 +957,16 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
             <Text style={styles.heading}>Pronunciation 🔊</Text>
             <Text style={styles.pronounceText}>{selectedName.english}</Text>
 
-            {/* AUDIO BUTTON */}
-            <TouchableOpacity style={styles.audioButton}>
+            {/* AUDIO BUTTON — female TTS */}
+            <TouchableOpacity
+              style={styles.audioButton}
+              activeOpacity={0.85}
+              onPress={() =>
+                speakArabicFemale(selectedName.arabic, selectedName.english)
+              }
+            >
               <Ionicons name="volume-high" size={24} color="#fff" />
-              <Text style={styles.audioText}>Listen Pronunciation</Text>
+              <Text style={styles.audioText}>Hear pronunciation</Text>
             </TouchableOpacity>
 
             <Text style={styles.heading}>Tafseer 📖</Text>

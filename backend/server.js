@@ -2,6 +2,8 @@ const path = require("path");
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
@@ -13,11 +15,36 @@ const supportRoutes = require("./routes/supportRoutes");
 
 const app = express();
 
-app.use(cors());
+app.use(helmet());
+
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean)
+  : true;
+
+app.use(
+  cors({
+    origin: corsOrigin,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+  }),
+);
+
 app.use(express.json({ limit: "100kb" }));
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many auth attempts. Please try again later.",
+  },
+});
+
 app.get("/ping", (_req, res) => res.json({ ok: true }));
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/prayer", prayerRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/inspiration", inspirationRoutes);

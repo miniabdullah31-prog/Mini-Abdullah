@@ -136,3 +136,58 @@ export function getTimeGreeting(date = new Date()): string {
   if (hour >= 12 && hour < 17) return "Good Afternoon";
   return "Good Evening";
 }
+
+/** Device-wide notifications preference (Profile switch). Default ON. */
+const NOTIFICATIONS_ENABLED_KEY = "miniabdullah_notifications_enabled_v1";
+const PRAYER_TIMES_CACHE_KEY = "miniabdullah_prayer_times_cache_v1";
+
+export async function getNotificationsEnabled(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+    if (raw == null) return true;
+    return raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+export async function setNotificationsEnabled(
+  enabled: boolean,
+): Promise<void> {
+  await AsyncStorage.setItem(
+    NOTIFICATIONS_ENABLED_KEY,
+    enabled ? "1" : "0",
+  );
+}
+
+export type CachedPrayerTimes = {
+  city?: string;
+  fajr?: string;
+  dhuhr?: string;
+  asr?: string;
+  maghrib?: string;
+  isha?: string;
+  updatedAt?: number;
+};
+
+export async function getCachedPrayerTimes(): Promise<CachedPrayerTimes | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PRAYER_TIMES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedPrayerTimes;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedPrayerTimes(
+  times: CachedPrayerTimes,
+): Promise<void> {
+  const payload: CachedPrayerTimes = {
+    ...times,
+    updatedAt: Date.now(),
+  };
+  await AsyncStorage.setItem(PRAYER_TIMES_CACHE_KEY, JSON.stringify(payload));
+}

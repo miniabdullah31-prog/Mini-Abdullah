@@ -13,6 +13,7 @@ import {
   Platform,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import { useFormScroll } from "../hooks/useFormScroll";
 
 type Props = {
   goToLogin: () => void;
@@ -22,6 +23,8 @@ type Props = {
 const ForgotPassword: React.FC<Props> = ({ goToLogin, goToOtp }) => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const { scrollRef, onCardLayout, registerField, scrollToField } =
+    useFormScroll();
 
   const handleReset = async () => {
     const cleanEmail = email.trim();
@@ -88,18 +91,23 @@ const ForgotPassword: React.FC<Props> = ({ goToLogin, goToOtp }) => {
     <View style={styles.container}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
       >
         <ScrollView
+          ref={scrollRef}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
           bounces={false}
           contentInsetAdjustmentBehavior="always"
         >
-          <View style={styles.card}>
+          <View
+            style={styles.card}
+            onLayout={(e) => onCardLayout(e.nativeEvent.layout.y)}
+          >
             <Image
               source={require("../assets/forgot-password.png")}
               style={styles.image}
@@ -112,17 +120,23 @@ const ForgotPassword: React.FC<Props> = ({ goToLogin, goToOtp }) => {
               reset your password
             </Text>
 
-            <TextInput
-              placeholder="Email Address"
-              placeholderTextColor="#888"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
+            <View
+              style={styles.fieldWrap}
+              onLayout={(e) => registerField("email", e.nativeEvent.layout.y)}
+            >
+              <TextInput
+                placeholder="Email Address"
+                placeholderTextColor="#888"
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+                onFocus={() => scrollToField("email")}
+              />
+            </View>
 
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
@@ -167,7 +181,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     paddingTop: 48,
-    paddingBottom: 48,
+    paddingBottom: 220,
   },
 
   card: {
@@ -178,6 +192,10 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: "center",
     elevation: 8,
+  },
+
+  fieldWrap: {
+    width: "100%",
   },
 
   image: {
