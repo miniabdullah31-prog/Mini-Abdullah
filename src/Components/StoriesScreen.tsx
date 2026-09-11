@@ -5,21 +5,30 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  TouchableOpacity,
   ImageBackground,
   Image,
   StatusBar,
   Linking,
   Alert,
+  Dimensions,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import { ISLAMIC_SHORTS, ShortClip } from "../data/islamicShorts";
 
 type Props = { goBack: () => void };
+
+/** 2-col grid: pad 20*2, ~4% gap between columns → consistent thumb size */
+const SCREEN_W = Dimensions.get("window").width;
+const GRID_PAD = 20;
+const COL_GAP = Math.max(12, Math.round(SCREEN_W * 0.04));
+const CARD_W = (SCREEN_W - GRID_PAD * 2 - COL_GAP) / 2;
+/** Portrait short-style thumb (4:5) — child-friendly, uniform across covers + gradients */
+const CARD_H = Math.round(CARD_W * 1.25);
 
 const StoriesScreen: React.FC<Props> = ({ goBack }) => {
   const openOnYouTube = useCallback(async (item: ShortClip) => {
@@ -59,8 +68,8 @@ const StoriesScreen: React.FC<Props> = ({ goBack }) => {
         <View style={styles.grid}>
           {ISLAMIC_SHORTS.map((item) => (
             <View key={item.id} style={styles.cardCol}>
-              <TouchableOpacity
-                activeOpacity={0.9}
+              <SmoothPressable
+                radius={22}
                 onPress={() => openOnYouTube(item)}
                 style={styles.cardWrapper}
               >
@@ -70,19 +79,21 @@ const StoriesScreen: React.FC<Props> = ({ goBack }) => {
                   end={{ x: 1, y: 1 }}
                   style={styles.card}
                 >
-                  <GradCardDecor />
+                  {!item.cover && <GradCardDecor />}
                   {item.cover ? (
-                    <Image source={item.cover} style={styles.cover} />
-                  ) : (
-                    <View style={styles.coverFallback} />
-                  )}
-                  <View style={styles.playOverlay}>
+                    <Image
+                      source={item.cover}
+                      style={styles.cover}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+                  <View style={styles.playOverlay} pointerEvents="none">
                     <View style={styles.playCircle}>
                       <Ionicons name="logo-youtube" size={22} color="#FF0000" />
                     </View>
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </SmoothPressable>
 
               <Text style={styles.listCaption} numberOfLines={2}>
                 {item.caption}
@@ -130,44 +141,42 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: GRID_PAD,
     paddingTop: 14,
     paddingBottom: 40,
   },
   cardCol: {
-    width: "48%",
+    width: CARD_W,
     marginBottom: 18,
   },
   cardWrapper: {
-    width: "100%",
-    borderRadius: 24,
+    width: CARD_W,
+    height: CARD_H,
+    borderRadius: 22,
     overflow: "hidden",
-    elevation: 5,
+    backgroundColor: "#E8E0FF",
   },
   card: {
-    width: "100%",
-    borderRadius: 24,
+    width: CARD_W,
+    height: CARD_H,
+    borderRadius: 22,
     overflow: "hidden",
-    minHeight: 200,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   cover: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  coverFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "transparent",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: CARD_W,
+    height: CARD_H,
   },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.12)",
+    backgroundColor: "rgba(0,0,0,0.18)",
   },
   playCircle: {
     width: 48,
@@ -185,5 +194,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 16,
     paddingHorizontal: 4,
+    minHeight: 32,
   },
 });

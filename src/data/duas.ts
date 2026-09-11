@@ -7,7 +7,13 @@
  * 2. Set on the dua item:
  *    audio: require("../assets/duas/morning.mp3"),
  *
- * Leave audio: null until you attach your recording.
+ * HOW TO ADD AI VIDEO LESSONS:
+ * 1. Put .mp4 in: src/assets/duas/videos/
+ *    e.g. morning.mp4 , sleep.mp4
+ * 2. Set on the dua item:
+ *    video: require("../assets/duas/videos/morning.mp4"),
+ *
+ * Leave audio/video null until you attach your files.
  * (Quran Sudais + other screens keep TTS — only Duas use your files.)
  */
 
@@ -23,6 +29,8 @@ export type DuaItem = {
   caption: string;
   /** Your recorded dua audio — require("../assets/duas/file.mp3") or null */
   audio: number | null;
+  /** AI lesson video — require("../assets/duas/videos/file.mp4") or null */
+  video: number | null;
   icon: "sunny" | "moon" | "restaurant" | "airplane" | "people" | "school" | "walk" | "home" | "heart" | "shield-checkmark";
   colors: [string, string];
 };
@@ -42,6 +50,7 @@ export const DUAS: DuaItem[] = [
       "یہ دعا دن کا آغاز اللہ کی حاکمیت کے اقرار کے ساتھ کرتی ہے تاکہ سارا دن حفاظت میں گزرے۔",
     caption: "Morning remembrance · start your day with Allah",
     audio: null, // require("../assets/duas/morning.mp3"),
+    video: require("../assets/duas/videos/morning.mp4"),
     icon: "sunny",
     colors: ["#1F8A70", "#3CB89A"],
   },
@@ -59,6 +68,7 @@ export const DUAS: DuaItem[] = [
       "نیند کو چھوٹی موت کہا گیا ہے؛ اس دعا سے سوتے وقت روح اللہ کے سپرد ہوتی ہے۔",
     caption: "Before sleep · entrust yourself to Allah",
     audio: null, // require("../assets/duas/sleep.mp3"),
+    video: require("../assets/duas/videos/sleep.mp4"),
     icon: "moon",
     colors: ["#2E6BFF", "#5AA0FF"],
   },
@@ -76,6 +86,7 @@ export const DUAS: DuaItem[] = [
       "کھانے پر اللہ کا نام لینے سے برکت آتی ہے اور شیطان اس رزق میں شریک نہیں ہوتا۔",
     caption: "Before eating · begin with Bismillah",
     audio: null, // require("../assets/duas/eating.mp3"),
+    video: null,
     icon: "restaurant",
     colors: ["#C45C2A", "#E08A4F"],
   },
@@ -94,6 +105,7 @@ export const DUAS: DuaItem[] = [
       "سفر پر اللہ کا شکر اور حفاظت مانگنے کی مسنون دعا ہے۔",
     caption: "When starting a journey · ask for safety",
     audio: null, // require("../assets/duas/travel.mp3"),
+    video: null,
     icon: "airplane",
     colors: ["#0F9B8E", "#34D1BF"],
   },
@@ -112,6 +124,7 @@ export const DUAS: DuaItem[] = [
       "قرآن کی یہ دعا والدین پر رحمت اور حسنِ سلوک سکھاتی ہے۔",
     caption: "For parents · mercy and gratitude",
     audio: null, // require("../assets/duas/parents.mp3"),
+    video: null,
     icon: "people",
     colors: ["#7B2FF7", "#5B33C4"],
   },
@@ -128,6 +141,7 @@ export const DUAS: DuaItem[] = [
       "علمِ نافع، تیز حافظہ اور پڑھائی میں آسانی کے لیے مفید قرآنی دعا۔",
     caption: "Before studying · ask for useful knowledge",
     audio: null, // require("../assets/duas/study.mp3"),
+    video: null,
     icon: "school",
     colors: ["#B06AB3", "#7B3FA0"],
   },
@@ -146,6 +160,7 @@ export const DUAS: DuaItem[] = [
       "گھر سے نکلتے وقت یہ دعا شیطان کے شر سے حفاظت دلاتی ہے۔",
     caption: "Leaving home · trust in Allah",
     audio: null, // require("../assets/duas/leaving-home.mp3"),
+    video: null,
     icon: "walk",
     colors: ["#1F8A70", "#3CB89A"],
   },
@@ -163,6 +178,7 @@ export const DUAS: DuaItem[] = [
       "گھر میں داخل ہوتے وقت برکت اور سلامتی کے لیے مسنون دعا۔",
     caption: "Entering home · ask for blessing",
     audio: null, // require("../assets/duas/entering-home.mp3"),
+    video: null,
     icon: "home",
     colors: ["#2E6BFF", "#5AA0FF"],
   },
@@ -181,6 +197,7 @@ export const DUAS: DuaItem[] = [
       "حضرت ابراہیم علیہ السلام کی دعا اپنی، والدین اور امت کی مغفرت کے لیے۔",
     caption: "Seek forgiveness · for yourself and others",
     audio: null, // require("../assets/duas/forgiveness.mp3"),
+    video: null,
     icon: "heart",
     colors: ["#C45C2A", "#E08A4F"],
   },
@@ -200,6 +217,7 @@ export const DUAS: DuaItem[] = [
       "صبح و شام پڑھنے سے ناگہانی آفت اور بیماری سے اللہ کی پناہ ملتی ہے۔",
     caption: "Morning & evening · divine protection",
     audio: null, // require("../assets/duas/protection.mp3"),
+    video: null,
     icon: "shield-checkmark",
     colors: ["#7B2FF7", "#5B33C4"],
   },

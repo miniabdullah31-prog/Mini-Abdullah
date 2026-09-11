@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { SafeAreaView } from "react-native";
+import { BackHandler, Platform, SafeAreaView } from "react-native";
 
 import SplashScreen from "./src/Components/SplashScreen";
 import OnBoarding from "./src/Components/onBoardingScreens";
@@ -20,6 +20,8 @@ import SalahScreen from "./src/Components/SalahScreen";
 import IslamicQuizScreen from "./src/Components/IslamicQuizScreen";
 import DailySunnahScreen from "./src/Components/DailySunnahScreen";
 import ProfileScreen from "./src/Components/ProfileScreen";
+import TalkingAbdullahScreen from "./src/Components/TalkingAbdullahScreen";
+import TutorScreen from "./src/Components/TutorScreen";
 import {
   isOnboardingDone,
   markOnboardingDone,
@@ -27,6 +29,16 @@ import {
 } from "./src/services/appPrefsStore";
 import { getRestorableActiveAccount } from "./src/services/accountStore";
 import { hydrateNotificationsIfEnabled } from "./src/services/notificationService";
+import {
+  initFcmForAuthenticatedUser,
+  teardownFcmListeners,
+  attachNotifeePressHandler,
+} from "./src/services/fcmService";
+import {
+  setNotificationNavigator,
+  consumePendingNotificationNav,
+} from "./src/services/notificationNavigation";
+import { tryFeatureBack } from "./src/navigation/featureBackHandler";
 
 const App = () => {
   const [screen, setScreen] = useState(1);
@@ -37,6 +49,44 @@ const App = () => {
   useEffect(() => {
     hydrateNotificationsIfEnabled().catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    setNotificationNavigator((target) => {
+      setScreen(target.screen);
+    });
+
+    const pending = consumePendingNotificationNav();
+    if (pending) {
+      setScreen(pending.screen);
+    }
+
+    const unsubNotifee = attachNotifeePressHandler();
+
+    return () => {
+      unsubNotifee?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (screen !== 10) {
+      return;
+    }
+
+    console.log("[FCM] Home reached (screen=10) — calling initFcmForAuthenticatedUser()");
+
+    initFcmForAuthenticatedUser()
+      .then(() => {
+        console.log("[FCM] initFcmForAuthenticatedUser() finished");
+      })
+      .catch((error) => {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.warn(`[FCM] ERROR: App.tsx init — ${msg}`);
+      });
+
+    return () => {
+      teardownFcmListeners();
+    };
+  }, [screen]);
 
   const goToWelcome = () => {
     setScreen(3);
@@ -58,6 +108,8 @@ const App = () => {
   const goToNamesOfAllah = () => openFeature(16);
   const goToChatbot = () => openFeature(17);
   const goToQuiz = () => openFeature(18);
+  const goToTalkingAbdullah = () => openFeature(20);
+  const goToTutor = () => openFeature(21);
   const goToProfile = () => setScreen(19);
 
   const finishOnboarding = async () => {
@@ -87,15 +139,58 @@ const App = () => {
     }
   }, []);
 
-  const goBack = () => {
-    if (screen >= 11 && screen <= 19) {
+  const goBack = useCallback(() => {
+    if (screen >= 11 && screen <= 21) {
+      if (tryFeatureBack()) {
+        return;
+      }
       setScreen(10);
     } else if (screen === 10) {
       setScreen(3);
     } else {
       setScreen(screen - 1);
     }
-  };
+  }, [screen]);
+
+  const handleAndroidBackPress = useCallback(() => {
+    if (screen === 1) {
+      // Splash — allow default app exit
+      return false;
+    }
+
+    if (screen === 2) {
+      if (onboardStep > 1) {
+        setOnboardStep((step) => step - 1);
+        return true;
+      }
+      setScreen(1);
+      return true;
+    }
+
+    if (screen >= 11 && screen <= 21) {
+      if (tryFeatureBack()) {
+        return true;
+      }
+      setScreen(10);
+      return true;
+    }
+
+    goBack();
+    return true;
+  }, [screen, onboardStep, goBack]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleAndroidBackPress,
+    );
+
+    return () => subscription.remove();
+  }, [handleAndroidBackPress]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
@@ -186,6 +281,8 @@ const App = () => {
           goToQuiz={goToQuiz}
           goToDailySunnah={goToDailySunnah}
           goToProfile={goToProfile}
+          goToTalkingAbdullah={goToTalkingAbdullah}
+          goToTutor={goToTutor}
         />
       )}
 
@@ -198,8 +295,14 @@ const App = () => {
       {screen === 17 && <ChatbotScreen goBack={goBack} />}
       {screen === 18 && <IslamicQuizScreen goBack={goBack} />}
       {screen === 19 && (
-        <ProfileScreen goToHome={goToHome} goToWelcome={goToWelcome} />
+        <ProfileScreen
+          goToHome={goToHome}
+          goToWelcome={goToWelcome}
+          goToTutor={goToTutor}
+        />
       )}
+      {screen === 20 && <TalkingAbdullahScreen goBack={goBack} />}
+      {screen === 21 && <TutorScreen goBack={goBack} />}
     </SafeAreaView>
   );
 };

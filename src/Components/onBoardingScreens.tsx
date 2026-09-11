@@ -15,7 +15,6 @@ type Props = {
 };
 
 const Onboarding: React.FC<Props> = ({ step, next, onSkip }) => {
-
   const data = [
     {
       title: "The Learning Journey",
@@ -34,31 +33,27 @@ const Onboarding: React.FC<Props> = ({ step, next, onSkip }) => {
     },
   ];
 
-  const current = data[step - 1];
+  const current = data[step - 1] ?? data[0];
 
   return (
     <View style={styles.container}>
-
-      <TouchableOpacity onPress={onSkip} style={styles.skipButton} accessibilityRole="button" accessibilityLabel="Skip onboarding">
+      <TouchableOpacity
+        onPress={onSkip}
+        style={styles.skipButton}
+        accessibilityRole="button"
+        accessibilityLabel="Skip onboarding"
+      >
         <Text style={styles.skip}>Skip</Text>
       </TouchableOpacity>
 
       <View style={styles.card}>
-
         <View style={styles.imageContainer}>
-          <Image
-            source={current.image}
-            style={styles.image}
-          />
+          <Image source={current.image} style={styles.image} />
         </View>
 
-        <Text style={styles.title}>
-          {current.title}
-        </Text>
+        <Text style={styles.title}>{current.title}</Text>
 
-        <Text style={styles.desc}>
-          {current.desc}
-        </Text>
+        <Text style={styles.desc}>{current.desc}</Text>
 
         <View style={styles.progress}>
           <View
@@ -66,52 +61,22 @@ const Onboarding: React.FC<Props> = ({ step, next, onSkip }) => {
               styles.fill,
               {
                 width:
-                  step === 1
-                    ? "33%"
-                    : step === 2
-                    ? "66%"
-                    : "100%",
+                  step === 1 ? "33%" : step === 2 ? "66%" : "100%",
               },
             ]}
           />
         </View>
 
         <View style={styles.dots}>
-
-          <View
-            style={[
-              styles.dot,
-              step === 1 && styles.activeDot,
-            ]}
-          />
-
-          <View
-            style={[
-              styles.dot,
-              step === 2 && styles.activeDot,
-            ]}
-          />
-
-          <View
-            style={[
-              styles.dot,
-              step === 3 && styles.activeDot,
-            ]}
-          />
-
+          <View style={[styles.dot, step === 1 && styles.activeDot]} />
+          <View style={[styles.dot, step === 2 && styles.activeDot]} />
+          <View style={[styles.dot, step === 3 && styles.activeDot]} />
         </View>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={next}
-        >
-          <Text style={styles.buttonText}>
-            Next
-          </Text>
+        <TouchableOpacity style={styles.button} onPress={next}>
+          <Text style={styles.buttonText}>Next</Text>
         </TouchableOpacity>
-
       </View>
-
     </View>
   );
 };
@@ -121,7 +86,6 @@ export default Onboarding;
 const { width, height } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: "#ffffff",

@@ -1,4 +1,3 @@
-import axios from "axios";
 import { API_BASE_URL } from "../config/api";
 import { getActiveAuthToken } from "./accountStore";
 
@@ -9,48 +8,101 @@ export type ChatHistoryItem = {
   text: string;
 };
 
+const VOICE_MODE_HINT =
+  "[Voice conversation mode — reply in 2-4 short spoken sentences, warm and kid-friendly, plain text only, same language as the user. No markdown or bullet lists.] ";
+
+function isLikelyUnreachable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || "");
+  const name = error instanceof Error ? error.name : "";
+  return (
+    name === "TypeError" ||
+    /Network request failed|Failed to fetch|Network Error|ECONNREFUSED|ENOTFOUND|timed out/i.test(
+      message,
+    )
+  );
+}
+
+async function readApiError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data?.message && typeof data.message === "string") {
+      return data.message;
+    }
+  } catch {
+    // body was not JSON
+  }
+  if (res.status === 401) {
+    return "Please log in again to talk with Abdullah.";
+  }
+  if (res.status === 429) {
+    return "Too many messages. Please wait a moment.";
+  }
+  if (res.status >= 500) {
+    return "Abdullah could not answer right now. Please try again.";
+  }
+  return `Could not get a reply (${res.status}).`;
+}
+
 export async function sendChatMessage(
   message: string,
   history: ChatHistoryItem[] = [],
   baseURL = DEFAULT_BASE_URL,
 ) {
+  const token = await getActiveAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+
   try {
-    const token = await getActiveAuthToken();
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${baseURL}/api/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ message, history }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(await readApiError(res));
     }
 
-    const response = await axios.post(
-      `${baseURL}/api/chat`,
-      { message, history },
-      { timeout: 45000, headers },
-    );
-
-    if (!response.data?.success || !response.data?.data?.reply) {
-      throw new Error(response.data?.message || "Failed to get chatbot reply");
+    const data = await res.json();
+    if (!data?.success || !data?.data?.reply) {
+      throw new Error(data?.message || "Failed to get chatbot reply");
     }
 
-    return response.data.data.reply as string;
+    return data.data.reply as string;
   } catch (error: any) {
-    const status = error?.response?.status;
-    const apiMessage = error?.response?.data?.message;
-    if (status === 401) {
-      throw new Error(apiMessage || "Please log in again to use the chatbot.");
-    }
-    if (apiMessage) {
-      throw new Error(apiMessage);
-    }
-    if (error?.code === "ECONNABORTED") {
+    if (error?.name === "AbortError") {
       throw new Error("Reply timed out. Please try again.");
     }
-    if (error?.message?.includes("Network Error")) {
+    if (error instanceof Error && error.message && !isLikelyUnreachable(error)) {
+      throw error;
+    }
+    if (isLikelyUnreachable(error)) {
       throw new Error(
-        `Could not reach server at ${baseURL}. Is backend running?`,
+        "Abdullah could not reach the server. Keep USB connected, or use the same Wi‑Fi as the PC.",
       );
     }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+export async function sendVoiceChatMessage(
+  message: string,
+  history: ChatHistoryItem[] = [],
+  baseURL = DEFAULT_BASE_URL,
+) {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    throw new Error("Message is required");
+  }
+  return sendChatMessage(VOICE_MODE_HINT + trimmed, history, baseURL);
 }

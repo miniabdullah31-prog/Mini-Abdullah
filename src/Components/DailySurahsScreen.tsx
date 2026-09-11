@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -14,10 +14,12 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DAILY_SURAHS, DailySurah } from "../data/dailySurahs";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
 type TranslationMode = "off" | "en" | "ur";
@@ -54,6 +56,24 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
     );
   }, [search]);
 
+  const closeDetail = useCallback(() => {
+    stopSpeaking();
+    setPlayingId(null);
+    setSelected(null);
+    setTranslation("off");
+  }, []);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (selected) {
+        closeDetail();
+        return true;
+      }
+      return false;
+    }, [selected, closeDetail]),
+    [selected, closeDetail],
+  );
+
   const handlePlay = async (globalId: number, arabic: string) => {
     if (playingId === globalId) {
       stopSpeaking();
@@ -73,14 +93,7 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
           style={styles.detailHeader}
           imageStyle={styles.headerRadius}
         >
-          <BackButton
-            onPress={() => {
-              stopSpeaking();
-              setPlayingId(null);
-              setSelected(null);
-              setTranslation("off");
-            }}
-          />
+          <BackButton onPress={closeDetail} />
           <Text style={styles.headerTitle}>{selected.name}</Text>
           <Text style={styles.headerArabic}>{selected.nameArabic}</Text>
           <Text style={styles.headerSub}>
@@ -174,8 +187,8 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         renderItem={({ item, index }) => (
-          <TouchableOpacity
-            activeOpacity={0.9}
+          <SmoothPressable
+            radius={22}
             onPress={() => setSelected(item)}
             style={styles.cardWrap}
           >
@@ -198,7 +211,7 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#fff" />
             </LinearGradient>
-          </TouchableOpacity>
+          </SmoothPressable>
         )}
       />
     </SafeAreaView>
@@ -234,7 +247,7 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, color: "#333", fontWeight: "600" },
   list: { padding: 16, paddingBottom: 40 },
-  cardWrap: { marginBottom: 12, borderRadius: 22, overflow: "hidden", elevation: 3 },
+  cardWrap: { marginBottom: 12, borderRadius: 22, overflow: "hidden" },
   card: {
     flexDirection: "row",
     alignItems: "center",

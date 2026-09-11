@@ -12,6 +12,12 @@ const prayerRoutes = require("./routes/prayerRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const inspirationRoutes = require("./routes/inspiration");
 const supportRoutes = require("./routes/supportRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const dailyContentRoutes = require("./routes/dailyContentRoutes");
+const tutorRoutes = require("./routes/tutorRoutes");
+const appointmentRoutes = require("./routes/appointmentRoutes");
+const { startDailyNotificationScheduler } = require("./services/dailyNotificationScheduler");
+const { seedTutorsIfNeeded } = require("./services/tutorService");
 
 const app = express();
 
@@ -44,11 +50,30 @@ const authLimiter = rateLimit({
 });
 
 app.get("/ping", (_req, res) => res.json({ ok: true }));
+
+/** Quick status — Mongo/Gemini optional; server still runs without them. */
+app.get("/api/health", (_req, res) => {
+  res.json({
+    ok: true,
+    mongo: mongoose.connection.readyState === 1,
+    gemini: !!process.env.GEMINI_API_KEY,
+    jwt: !!process.env.JWT_SECRET,
+    firebaseAdmin: !!(
+      process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+    ),
+  });
+});
+
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/prayer", prayerRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/inspiration", inspirationRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/daily-content", dailyContentRoutes);
+app.use("/api/tutors", tutorRoutes);
+app.use("/api/appointments", appointmentRoutes);
 
 const port = process.env.PORT || 5000;
 
@@ -57,6 +82,11 @@ async function start() {
     if (process.env.MONGO_URI) {
       await mongoose.connect(process.env.MONGO_URI);
       console.log("MongoDB Connected");
+      try {
+        await seedTutorsIfNeeded();
+      } catch (seedErr) {
+        console.log("Tutor seed error:", seedErr.message);
+      }
     } else {
       console.log("MONGO_URI missing — DB features unavailable");
     }
@@ -67,6 +97,7 @@ async function start() {
   app.listen(port, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${port}`);
     console.log(`Phone/emulator can reach this PC at http://<your-LAN-IP>:${port}`);
+    startDailyNotificationScheduler();
   });
 }
 

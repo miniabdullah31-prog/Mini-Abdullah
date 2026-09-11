@@ -1,8 +1,13 @@
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { getAuth } = require("firebase-admin/auth");
 const User = require("../models/User");
 const { sendMail, isMailConfigured } = require("../services/emailService");
+const {
+  initFirebaseAdmin,
+  isFirebaseReady,
+} = require("../services/notificationService");
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -83,12 +88,21 @@ const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const cleanEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (!user.password) {
+      return res.json({
+        success: false,
+        message:
+          "This account uses Google Sign-In. Please continue with Google.",
       });
     }
 
@@ -408,9 +422,93 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// GOOGLE SIGN-IN — verify Firebase ID token, find/create user, return JWT
+const googleLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken || !String(idToken).trim()) {
+      return res.json({
+        success: false,
+        message: "Google ID token is required",
+      });
+    }
+
+    if (!initFirebaseAdmin() || !isFirebaseReady()) {
+      return res.json({
+        success: false,
+        message: "Google Sign-In is not configured on the server",
+      });
+    }
+
+    const decoded = await getAuth().verifyIdToken(String(idToken).trim());
+    const { email, name, uid } = decoded;
+
+    if (!email) {
+      return res.json({
+        success: false,
+        message: "Google account has no email address",
+      });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    let user = await User.findOne({
+      $or: [{ googleId: uid }, { email: cleanEmail }],
+    });
+
+    if (!user) {
+      user = new User({
+        name: name || cleanEmail.split("@")[0],
+        email: cleanEmail,
+        googleId: uid,
+        authProvider: "google",
+        password: null,
+      });
+      await user.save();
+    } else {
+      if (!user.googleId) {
+        user.googleId = uid;
+      }
+      if (!user.name && name) {
+        user.name = name;
+      }
+      await user.save();
+    }
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    return res.json({
+      success: true,
+      message: "Google login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.log("GOOGLE LOGIN ERROR:", error.message);
+    const expired =
+      error.code === "auth/id-token-expired" ||
+      error.code === "auth/argument-error";
+    return res.json({
+      success: false,
+      message: expired
+        ? "Google session expired. Please try again."
+        : "Google Sign-In failed. Please try again.",
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
+  googleLogin,
   forgotPassword,
   verifyOtp,
   resetPassword,

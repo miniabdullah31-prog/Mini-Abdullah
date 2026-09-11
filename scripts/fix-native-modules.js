@@ -46,6 +46,45 @@ dependencies {
 `,
 );
 
+function patchVoiceNativeModuleName() {
+  const rel = "node_modules/@react-native-voice/voice/dist/index.js";
+  const full = path.join(__dirname, "..", rel);
+  if (!fs.existsSync(full)) {
+    console.log("skip missing:", rel);
+    return;
+  }
+  let src = fs.readFileSync(full, "utf8");
+  const needle = "const Voice = react_native_1.NativeModules.Voice;";
+  const patched =
+    "const Voice = react_native_1.NativeModules.Voice ?? react_native_1.NativeModules.RCTVoice;";
+  if (src.includes(needle)) {
+    src = src.replace(needle, patched);
+    fs.writeFileSync(full, src);
+    console.log("patched:", rel, "(RCTVoice native module name)");
+  }
+}
+
+function patchVoiceRemoveAllListeners() {
+  const rel = "node_modules/@react-native-voice/voice/dist/index.js";
+  const full = path.join(__dirname, "..", rel);
+  if (!fs.existsSync(full)) {
+    console.log("skip missing:", rel);
+    return;
+  }
+  let src = fs.readFileSync(full, "utf8");
+  const needle = "    removeAllListeners() {\n        Voice.onSpeechStart = undefined;";
+  const guarded =
+    "    removeAllListeners() {\n        if (!Voice) {\n            return;\n        }\n        Voice.onSpeechStart = undefined;";
+  if (src.includes(needle)) {
+    src = src.replace(needle, guarded);
+    fs.writeFileSync(full, src);
+    console.log("patched:", rel, "(removeAllListeners null guard)");
+  }
+}
+
+patchVoiceNativeModuleName();
+patchVoiceRemoveAllListeners();
+
 write(
   "node_modules/@react-native-voice/voice/android/build.gradle",
   `apply plugin: 'com.android.library'

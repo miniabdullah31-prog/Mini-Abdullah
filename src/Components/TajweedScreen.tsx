@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,8 +14,10 @@ import {
 } from "react-native";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import { TAJWEED_RULES } from "../data/tajweed";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
 
@@ -40,6 +42,17 @@ const TajweedScreen: React.FC<Props> = ({ goBack }) => {
     setOpenId((prev) => (prev === id ? null : id));
   };
 
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (openId != null) {
+        setOpenId(null);
+        return true;
+      }
+      return false;
+    }, [openId]),
+    [openId],
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
@@ -63,8 +76,8 @@ const TajweedScreen: React.FC<Props> = ({ goBack }) => {
           const open = openId === item.id;
           return (
             <View key={item.id} style={styles.card}>
-              <TouchableOpacity
-                activeOpacity={0.85}
+              <SmoothPressable
+                radius={18}
                 onPress={() => toggle(item.id)}
                 style={styles.cardHead}
               >
@@ -77,7 +90,7 @@ const TajweedScreen: React.FC<Props> = ({ goBack }) => {
                   size={20}
                   color="#5B33C4"
                 />
-              </TouchableOpacity>
+              </SmoothPressable>
 
               {open && (
                 <View style={styles.infoBox}>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
 
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = {
   goBack: () => void;
@@ -149,6 +151,17 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
     item.title.toLowerCase().includes(search.toLowerCase())
   );
 
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (selectedStep) {
+        setSelectedStep(null);
+        return true;
+      }
+      return false;
+    }, [selectedStep]),
+    [selectedStep],
+  );
+
   /* ---------------- SALAH STEP DETAIL SCREEN ---------------- */
   if (selectedStep) {
     return (
@@ -228,9 +241,9 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
         {/* SALAH STEPS LIST */}
         <View style={styles.cardsContainer}>
           {filteredSteps.map((item) => (
-            <TouchableOpacity
+            <SmoothPressable
               key={item.id}
-              activeOpacity={0.9}
+              radius={22}
               style={styles.cardWrapper}
               onPress={() => setSelectedStep(item)}
             >
@@ -246,7 +259,7 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
                 </Text>
                 <Ionicons name="chevron-forward" size={26} color="#fff" />
               </ImageBackground>
-            </TouchableOpacity>
+            </SmoothPressable>
           ))}
         </View>
       </ScrollView>
@@ -316,7 +329,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     overflow: "hidden",
     minHeight: 90,
-    elevation: 5,
   },
   cardTitle: {
     color: "#fff",

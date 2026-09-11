@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,30 +9,86 @@ import {
   ImageBackground,
   StatusBar,
   TextInput,
-  Linking,
-  Alert,
+  Dimensions,
+  Platform,
+  Image,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
+import Video, { VideoRef } from "react-native-video";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DUAS, DuaItem } from "../data/duas";
 import { playDuaAudio, stopDuaAudio } from "../services/duaAudio";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
 type LangMode = "ar" | "ur" | "en";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
+  Dimensions.get("window");
+
+const VIDEO_CARD_HEIGHT = 180;
+const VIDEO_OVERLAY_HEADER = 56;
+const STATUS_BAR_HEIGHT =
+  Platform.OS === "android" ? StatusBar.currentHeight ?? 24 : 0;
+const VIDEO_PLAYER_HEIGHT =
+  SCREEN_HEIGHT - STATUS_BAR_HEIGHT - VIDEO_OVERLAY_HEADER - 24;
+
+/** RN 0.85 + Android: resolve bundled mp4 to a file URI for reliable decode. */
+function resolveVideoSource(video: number) {
+  const resolved = Image.resolveAssetSource(video);
+  if (!resolved?.uri) return video;
+
+  let uri = resolved.uri;
+  if (
+    Platform.OS === "android" &&
+    !uri.startsWith("http") &&
+    !uri.startsWith("file://") &&
+    !uri.startsWith("asset:/")
+  ) {
+    uri = `file://${uri}`;
+  }
+  return { uri };
+}
+
+/** First-frame preview on the card (paused, muted). */
+function DuaVideoThumbnail({ video }: { video: number }) {
+  return (
+    <Video
+      source={resolveVideoSource(video)}
+      style={styles.videoThumb}
+      paused
+      muted
+      repeat={false}
+      resizeMode="cover"
+      controls={false}
+      disableFocus
+      playInBackground={false}
+      posterResizeMode="cover"
+      {...(Platform.OS === "android" ? { useTextureView: true } : {})}
+    />
+  );
+}
 
 const DuasScreen: React.FC<Props> = ({ goBack }) => {
   const [search, setSearch] = useState("");
   const [selectedDua, setSelectedDua] = useState<DuaItem | null>(null);
   const [lang, setLang] = useState<LangMode>("ar");
   const [speaking, setSpeaking] = useState(false);
+  const [videoVisible, setVideoVisible] = useState(false);
+  const videoRef = useRef<VideoRef>(null);
 
   useEffect(() => {
     return () => {
       stopDuaAudio();
     };
+  }, []);
+
+  const closeVideo = useCallback(() => {
+    setVideoVisible(false);
   }, []);
 
   const filteredDuas = useMemo(() => {
@@ -61,24 +117,35 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
     }
   };
 
-  const openVideoHint = () => {
-    Alert.alert(
-      "Video guide",
-      "Video lesson for this dua will play here. You can link a YouTube lesson later.",
-      [
-        { text: "OK", style: "cancel" },
-        {
-          text: "Open YouTube",
-          onPress: () =>
-            Linking.openURL(
-              `https://www.youtube.com/results?search_query=${encodeURIComponent(
-                selectedDua?.title + " dua",
-              )}`,
-            ),
-        },
-      ],
-    );
+  const openVideo = () => {
+    if (!selectedDua?.video) return;
+    stopDuaAudio();
+    setSpeaking(false);
+    setVideoVisible(true);
   };
+
+  const closeDetail = useCallback(() => {
+    stopDuaAudio();
+    setSpeaking(false);
+    closeVideo();
+    setLang("ar");
+    setSelectedDua(null);
+  }, [closeVideo]);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (videoVisible) {
+        closeVideo();
+        return true;
+      }
+      if (selectedDua) {
+        closeDetail();
+        return true;
+      }
+      return false;
+    }, [videoVisible, selectedDua, closeDetail]),
+    [videoVisible, selectedDua, closeDetail],
+  );
 
   /* ---------------- DETAIL ---------------- */
   if (selectedDua) {
@@ -92,12 +159,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
         <BackButton
-          onPress={() => {
-            stopDuaAudio();
-            setSpeaking(false);
-            setLang("ar");
-            setSelectedDua(null);
-          }}
+          onPress={closeDetail}
         />
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -176,26 +238,88 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
             )}
 
             <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Video</Text>
-            <TouchableOpacity
-              style={styles.videoCard}
-              activeOpacity={0.88}
-              onPress={openVideoHint}
-            >
-              <LinearGradient
-                colors={selectedDua.colors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.videoInner}
+            {selectedDua.video ? (
+              <TouchableOpacity
+                style={styles.videoCard}
+                activeOpacity={0.88}
+                onPress={openVideo}
               >
-                <View style={styles.playCircle}>
-                  <Ionicons name="play" size={28} color="#5B33C4" />
+                <View style={styles.videoCardFrame}>
+                  <LinearGradient
+                    colors={selectedDua.colors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.videoThumbFallback}
+                  />
+                  <DuaVideoThumbnail video={selectedDua.video} />
+                  <View style={styles.videoThumbDim} />
+                  <View style={styles.videoThumbContent}>
+                    <View style={styles.playCircle}>
+                      <Ionicons name="play" size={28} color="#5B33C4" />
+                    </View>
+                    <Text style={styles.videoTitle}>Watch explanation</Text>
+                    <Text style={styles.videoSub}>{selectedDua.caption}</Text>
+                  </View>
                 </View>
-                <Text style={styles.videoTitle}>Watch explanation</Text>
-                <Text style={styles.videoSub}>{selectedDua.caption}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.comingSoonCard}>
+                <Ionicons name="videocam-outline" size={28} color="#9A8BC7" />
+                <Text style={styles.comingSoonTitle}>Video coming soon</Text>
+                <Text style={styles.comingSoonSub}>
+                  AI lesson for this dua will appear here.
+                </Text>
+              </View>
+            )}
           </View>
         </ScrollView>
+
+        {/* Full-screen overlay — RN 0.85 Modal breaks Android video surface */}
+        {videoVisible && selectedDua.video ? (
+          <View style={styles.videoOverlay}>
+            <SafeAreaView style={styles.videoOverlaySafeTop}>
+              <View style={styles.videoModalHeader}>
+                <Text style={styles.videoModalTitle}>{selectedDua.title}</Text>
+                <TouchableOpacity
+                  style={styles.videoCloseBtn}
+                  onPress={closeVideo}
+                  accessibilityLabel="Close video"
+                >
+                  <Ionicons name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+            <Video
+              key={`dua-player-${selectedDua.id}`}
+              ref={videoRef}
+              source={resolveVideoSource(selectedDua.video)}
+              style={{
+                width: SCREEN_WIDTH,
+                height: VIDEO_PLAYER_HEIGHT,
+              }}
+              controls
+              resizeMode="contain"
+              muted={false}
+              volume={1.0}
+              paused={false}
+              ignoreSilentSwitch="ignore"
+              mixWithOthers="mix"
+              playInBackground={false}
+              playWhenInactive
+              shutterColor="transparent"
+              bufferConfig={{
+                minBufferMs: 1500,
+                maxBufferMs: 8000,
+                bufferForPlaybackMs: 250,
+                bufferForPlaybackAfterRebufferMs: 500,
+              }}
+              {...(Platform.OS === "android"
+                ? { useTextureView: true }
+                : {})}
+              onEnd={closeVideo}
+            />
+          </View>
+        ) : null}
       </SafeAreaView>
     );
   }
@@ -238,9 +362,9 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
 
         <View style={styles.cardsContainer}>
           {filteredDuas.map((item) => (
-            <TouchableOpacity
+            <SmoothPressable
               key={item.id}
-              activeOpacity={0.9}
+              radius={20}
               style={styles.cardWrapper}
               onPress={() => {
                 setLang("ar");
@@ -268,7 +392,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
               </LinearGradient>
-            </TouchableOpacity>
+            </SmoothPressable>
           ))}
 
           {filteredDuas.length === 0 && (
@@ -283,7 +407,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
 export default DuasScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F6F7FB" },
+  container: { flex: 1, backgroundColor: "#F6F7FB", position: "relative" },
   header: {
     paddingTop: 70,
     paddingBottom: 36,
@@ -368,11 +492,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 20,
     overflow: "hidden",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
   },
   card: {
     borderRadius: 20,
@@ -515,11 +634,41 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
   },
-  videoInner: {
-    minHeight: 140,
+  videoCardFrame: {
+    width: "100%",
+    height: VIDEO_CARD_HEIGHT,
+    position: "relative",
+    backgroundColor: "#1a1a1a",
+  },
+  videoThumbFallback: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: VIDEO_CARD_HEIGHT,
+  },
+  videoThumb: {
+    width: "100%",
+    height: VIDEO_CARD_HEIGHT,
+    backgroundColor: "#1a1a1a",
+  },
+  videoThumbDim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.38)",
+  },
+  videoThumbContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    padding: 16,
   },
   playCircle: {
     width: 56,
@@ -541,5 +690,65 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 12,
     textAlign: "center",
+  },
+  comingSoonCard: {
+    marginTop: 10,
+    borderRadius: 18,
+    backgroundColor: "#FAF8FF",
+    borderWidth: 1,
+    borderColor: "#E6DEFF",
+    minHeight: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  comingSoonTitle: {
+    color: "#5B33C4",
+    fontWeight: "800",
+    fontSize: 15,
+    marginTop: 8,
+  },
+  comingSoonSub: {
+    color: "#777",
+    marginTop: 4,
+    fontWeight: "600",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  videoOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    backgroundColor: "#000",
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  videoOverlaySafeTop: {
+    backgroundColor: "#1a1a1a",
+  },
+  videoModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: VIDEO_OVERLAY_HEADER,
+  },
+  videoModalTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "800",
+    flex: 1,
+    marginRight: 12,
+  },
+  videoCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

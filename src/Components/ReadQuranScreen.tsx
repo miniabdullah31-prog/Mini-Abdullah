@@ -14,6 +14,7 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { JUZ_LIST } from "../data/juzMeta";
@@ -107,9 +108,9 @@ const ReadQuranScreen: React.FC<Props> = ({ goBack, onOpenJuz }) => {
               CARD_GRADIENTS[(juz.number - 1) % CARD_GRADIENTS.length];
 
             return (
-              <TouchableOpacity
+              <SmoothPressable
                 key={juz.number}
-                activeOpacity={0.9}
+                radius={20}
                 style={styles.cardWrapper}
                 onPress={() => onOpenJuz(juz.number)}
               >
@@ -131,7 +132,7 @@ const ReadQuranScreen: React.FC<Props> = ({ goBack, onOpenJuz }) => {
                   <Text style={styles.cardTitle}>{juz.name}</Text>
                   <Text style={styles.cardSubtitle}>{juz.range}</Text>
                 </LinearGradient>
-              </TouchableOpacity>
+              </SmoothPressable>
             );
           })}
 
@@ -214,11 +215,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 28,
     overflow: "hidden",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
   },
   card: {
     borderRadius: 28,

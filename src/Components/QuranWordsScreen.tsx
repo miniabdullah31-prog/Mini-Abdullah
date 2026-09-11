@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,8 +13,10 @@ import {
 } from "react-native";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import { QURAN_WORDS, QuranWord } from "../data/quranWords";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
 
@@ -42,6 +44,18 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
         w.plural.includes(search.trim()),
     );
   }, [search]);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (selected) {
+        stopSpeaking();
+        setSelected(null);
+        return true;
+      }
+      return false;
+    }, [selected]),
+    [selected],
+  );
 
   if (selected) {
     return (
@@ -135,8 +149,8 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            activeOpacity={0.9}
+          <SmoothPressable
+            radius={18}
             onPress={() => setSelected(item)}
             style={styles.rowCard}
           >
@@ -152,7 +166,7 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
             >
               <Ionicons name="volume-high" size={15} color="#fff" />
             </TouchableOpacity>
-          </TouchableOpacity>
+          </SmoothPressable>
         )}
       />
     </SafeAreaView>
@@ -190,7 +204,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    elevation: 2,
   },
   rowArabic: {
     fontSize: 24,

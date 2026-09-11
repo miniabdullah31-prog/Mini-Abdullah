@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import {
 
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = {
   goBack: () => void;
@@ -22,6 +24,18 @@ type Props = {
 const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
   const [search, setSearch] = useState("");
   const [selectedName, setSelectedName] = useState<any>(null);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (selectedName) {
+        stopSpeaking();
+        setSelectedName(null);
+        return true;
+      }
+      return false;
+    }, [selectedName]),
+    [selectedName],
+  );
 
   const allahNames = [
     {
@@ -1012,9 +1026,9 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
         {/* CARDS */}
         <View style={styles.cardsContainer}>
           {filteredNames.map((item) => (
-            <TouchableOpacity
+            <SmoothPressable
               key={item.id}
-              activeOpacity={0.9}
+              radius={22}
               style={styles.cardWrapper}
               onPress={() => setSelectedName(item)}
             >
@@ -1040,7 +1054,7 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
                   <Ionicons name="chevron-forward" size={28} color="#fff" />
                 </View>
               </ImageBackground>
-            </TouchableOpacity>
+            </SmoothPressable>
           ))}
         </View>
       </ScrollView>

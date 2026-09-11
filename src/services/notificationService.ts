@@ -15,6 +15,9 @@ import {
 
 const CHANNEL_ID = "miniabdullah_reminders";
 const CHANNEL_NAME = "Mini Abdullah Reminders";
+const SMALL_ICON = "ic_stat_miniabdullah";
+const LARGE_ICON = "ic_notification_logo";
+const ACCENT_COLOR = "#7B5CFA";
 
 const ID = {
   quote: "daily-islamic-quote",
@@ -30,6 +33,7 @@ const ID = {
 type NotifeeModule = typeof import("react-native-notify-kit").default & {
   createChannel: (c: object) => Promise<string>;
   createTriggerNotification: (n: object, t: object) => Promise<string>;
+  displayNotification: (n: object) => Promise<string>;
   cancelAllNotifications: () => Promise<void>;
   requestPermission: () => Promise<{ authorizationStatus: number }>;
 };
@@ -198,6 +202,10 @@ async function scheduleAt(
       android: {
         channelId: CHANNEL_ID,
         pressAction: { id: "default" },
+        smallIcon: SMALL_ICON,
+        largeIcon: LARGE_ICON,
+        color: ACCENT_COLOR,
+        circularLargeIcon: true,
       },
     },
     trigger,
@@ -270,37 +278,37 @@ async function scheduleDailyReminders(): Promise<void> {
   try {
     await scheduleAt(
       ID.quote,
-      "Daily Islamic Quote ✨",
-      "Assalamualaikum! Open Mini Abdullah for today's beautiful quote.",
-      nextOccurrenceMs(8, 0),
+      "Mini Abdullah 🌟",
+      "Assalamualaikum! 12:30 reminder — open Mini Abdullah for today's Islamic quote.",
+      nextOccurrenceMs(12, 30),
       true,
     );
   } catch (e) {
-    console.warn("[notifications] Quote schedule failed:", e);
+    console.warn("[notifications] 12:30 reminder schedule failed:", e);
   }
 
   try {
     await scheduleAt(
       ID.sunnah,
-      "Daily Sunnah 💚",
-      "Afternoon sunnah time — learn one lovely habit of Prophet ﷺ today!",
-      nextOccurrenceMs(15, 0),
+      "Mini Abdullah 💚",
+      "5:00 PM reminder — learn one lovely Sunnah of Prophet ﷺ today!",
+      nextOccurrenceMs(17, 0),
       true,
     );
   } catch (e) {
-    console.warn("[notifications] Sunnah schedule failed:", e);
+    console.warn("[notifications] 5:00 reminder schedule failed:", e);
   }
 
   try {
     await scheduleAt(
       ID.lesson,
-      "Quran lesson time 📖",
-      "Evening nudge: a short Quran lesson keeps your heart bright. Let's learn!",
-      nextOccurrenceMs(19, 30),
+      "Mini Abdullah 📖",
+      "9:00 PM reminder — a short Quran lesson before sleep keeps your heart bright.",
+      nextOccurrenceMs(21, 0),
       true,
     );
   } catch (e) {
-    console.warn("[notifications] Lesson schedule failed:", e);
+    console.warn("[notifications] 9:00 reminder schedule failed:", e);
   }
 }
 

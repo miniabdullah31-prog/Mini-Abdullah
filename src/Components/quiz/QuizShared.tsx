@@ -49,18 +49,27 @@ export function QuizLangChips({
   );
 }
 
-export function StarRow({ stars }: { stars: number }) {
+export function StarRow({
+  stars,
+  maxStars = 5,
+}: {
+  stars: number;
+  maxStars?: number;
+}) {
   return (
     <View style={styles.starRow}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Ionicons
-          key={i}
-          name={i <= stars ? "star" : "star-outline"}
-          size={28}
-          color={i <= stars ? "#F5B400" : "#CCC"}
-          style={{ marginHorizontal: 3 }}
-        />
-      ))}
+      {Array.from({ length: maxStars }, (_, idx) => {
+        const i = idx + 1;
+        return (
+          <Ionicons
+            key={i}
+            name={i <= stars ? "star" : "star-outline"}
+            size={28}
+            color={i <= stars ? "#F5B400" : "#CCC"}
+            style={{ marginHorizontal: 3 }}
+          />
+        );
+      })}
     </View>
   );
 }

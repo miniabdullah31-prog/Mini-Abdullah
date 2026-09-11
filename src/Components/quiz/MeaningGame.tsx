@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import BackButton from "../BackButton";
+import { useFeatureBackHandler } from "../../hooks/useFeatureBackHandler";
 import {
   MAX_WRONG_ATTEMPTS,
   MEANING_L1,
@@ -96,6 +97,42 @@ const MeaningGame: React.FC<Props> = ({ onExitToHub }) => {
     }
   }, [triesLeft, clearOpen, failOpen]);
 
+  const goBackStep = useCallback((): boolean => {
+    lockedRef.current = false;
+    setFlash(null);
+    if (clearOpen) {
+      setClearOpen(false);
+      return true;
+    }
+    if (failOpen) {
+      setFailOpen(false);
+      return true;
+    }
+    if (index > 0) {
+      setIndex((i) => i - 1);
+      return true;
+    }
+    if (level > 1) {
+      startLevel(level - 1, answerLang, false);
+      return true;
+    }
+    return false;
+  }, [clearOpen, failOpen, index, level, answerLang, startLevel]);
+
+  const onBack = useCallback(() => {
+    if (!goBackStep()) {
+      onExitToHub();
+    }
+  }, [goBackStep, onExitToHub]);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      onBack();
+      return true;
+    }, [onBack]),
+    [onBack],
+  );
+
   const onAnswerLang = (l: QuizLang) => {
     if (l === "ar") return;
     setAnswerLang(l);
@@ -138,7 +175,7 @@ const MeaningGame: React.FC<Props> = ({ onExitToHub }) => {
     <View style={styles.root}>
     <SafeAreaView style={styles.container}>
       <View style={styles.flex}>
-      <BackButton onPress={onExitToHub} />
+      <BackButton onPress={onBack} />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <ImageBackground
           source={require("../../homeAssets/Quotebg.jpg")}

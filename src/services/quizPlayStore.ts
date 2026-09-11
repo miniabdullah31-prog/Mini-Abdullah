@@ -1,10 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { resolveUserKey } from "./accountStore";
+import { GAME_IDS } from "../data/gameRegistry";
 
 const PREFIX = "miniabdullah_quiz_plays_";
 const QUIZ_MIGRATED_KEY = "miniabdullah_quiz_user_scoped_migrated_v1";
 
-const KNOWN_GAMES = ["wordsearch", "match", "meaning"] as const;
+const KNOWN_GAMES = GAME_IDS;
 const KNOWN_LEVELS = [1, 2] as const;
 
 function playKey(userKey: string, gameId: string, level: number) {

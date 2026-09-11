@@ -38,11 +38,12 @@ import RateAppModal from "./RateAppModal";
 type Props = {
   goToHome: () => void;
   goToWelcome: () => void;
+  goToTutor: () => void;
 };
 
-const SUPPORT_EMAIL = "support@miniabdullah.app";
+const SUPPORT_EMAIL = "support@miniabdullah31";
 
-const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
+const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) => {
   const [notifications, setNotifications] = useState(true);
   const [logoutModal, setLogoutModal] = useState(false);
   const [addProfileModal, setAddProfileModal] = useState(false);
@@ -161,6 +162,14 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
     const wasOnlyOne = accounts.length <= 1;
 
     try {
+      try {
+        const { signOutGoogleSession } = await import(
+          "../services/googleAuthService"
+        );
+        await signOutGoogleSession();
+      } catch {
+        // Google Sign-In native module may be unavailable — still logout locally
+      }
       const remaining = await logoutCurrentAccount();
       resetChatMemoryCache();
 
@@ -845,6 +854,16 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome }) => {
           >
             <Ionicons name="home" size={26} color="#B8A4F0" />
             <Text style={[styles.navText, styles.navTextInactive]}>Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={goToTutor}
+            accessibilityRole="button"
+            accessibilityLabel="Tutor"
+          >
+            <Ionicons name="school" size={26} color="#B8A4F0" />
+            <Text style={[styles.navText, styles.navTextInactive]}>Tutor</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

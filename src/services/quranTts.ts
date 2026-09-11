@@ -4,7 +4,7 @@ type SpeakOptions = {
   /** Prefer a female voice when available (Names of Allah, etc.). */
   preferFemale?: boolean;
   /** Language hint: Arabic name → ar-SA; transliteration fallback → en-US. */
-  language?: "ar-SA" | "ar" | "en-US";
+  language?: "ar-SA" | "ar" | "en-US" | "ur-PK";
 };
 
 type TtsVoice = {
@@ -99,8 +99,10 @@ async function configureVoice(options?: SpeakOptions) {
   const language = options?.language || "ar-SA";
   const langOrder =
     language === "en-US"
-      ? ["en-US", "en", "ar-SA", "ar"]
-      : ["ar-SA", "ar", "en-US", "en"];
+      ? ["en-US", "en", "ur-PK", "ar-SA", "ar"]
+      : language === "ur-PK"
+        ? ["ur-PK", "ur", "en-US", "en", "ar-SA", "ar"]
+        : ["ar-SA", "ar", "ur-PK", "en-US", "en"];
 
   await applyLanguage(language);
 
@@ -214,6 +216,129 @@ export async function speakArabicFemale(
       // ignore
     }
   }
+}
+
+function isChildLikeVoice(voice: TtsVoice): boolean {
+  const blob = `${voice.name || ""} ${voice.id || ""}`.toLowerCase();
+  return /child|kid|kids|junior|young|pediatric|ivy|little|boy|girl|cartoon/.test(
+    blob,
+  );
+}
+
+async function pickKidVoice(preferredLangs: string[]): Promise<string | null> {
+  const voices = await listVoices();
+  if (!voices.length) return null;
+
+  for (const lang of preferredLangs) {
+    const child = voices.find(
+      (v) => isChildLikeVoice(v) && langMatches(v.language, lang),
+    );
+    if (child?.id) return child.id;
+  }
+
+  for (const lang of preferredLangs) {
+    const softFemale = voices.find(
+      (v) => isFemaleVoice(v) && langMatches(v.language, lang),
+    );
+    if (softFemale?.id) return softFemale.id;
+  }
+
+  return pickVoice(preferredLangs, false);
+}
+
+async function configureKidVoice(language: string) {
+  const langOrder =
+    language === "en-US"
+      ? ["en-US", "en", "ur-PK", "ar-SA", "ar"]
+      : language === "ur-PK"
+        ? ["ur-PK", "ur", "en-US", "en", "ar-SA", "ar"]
+        : ["ar-SA", "ar", "ur-PK", "en-US", "en"];
+
+  await applyLanguage(language);
+  const kidVoiceId = await pickKidVoice(langOrder);
+  await applyVoiceId(kidVoiceId);
+
+  try {
+    await Tts.setDefaultRate(0.5);
+  } catch {
+    // ignore
+  }
+  try {
+    await Tts.setDefaultPitch(1.32);
+  } catch {
+    // ignore
+  }
+}
+
+function detectConversationalLanguage(text: string): "ur-PK" | "ar-SA" | "en-US" {
+  if (/[\u0600-\u06FF]/.test(text)) {
+    if (/[\u0679\u0686\u0691\u06AF\u06BE\u06C1\u06D2]/.test(text)) {
+      return "ur-PK";
+    }
+    return "ar-SA";
+  }
+  return "en-US";
+}
+
+/**
+ * Talking Abdullah — child-like voice (higher pitch + kid TTS when available).
+ */
+export async function speakConversational(text: string) {
+  const value = (text || "").trim();
+  if (!value) return;
+
+  try {
+    await Tts.stop();
+  } catch {
+    // ignore
+  }
+
+  const language = detectConversationalLanguage(value);
+  await configureKidVoice(language);
+
+  try {
+    await Tts.speak(value);
+  } catch {
+    // ignore
+  }
+}
+
+/** Speak and resolve when TTS finishes or is cancelled. */
+export function speakConversationalAndWait(
+  text: string,
+  callbacks?: {
+    onStart?: () => void;
+    onProgress?: () => void;
+  },
+): Promise<void> {
+  const value = (text || "").trim();
+  if (!value) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      finishSub?.remove?.();
+      cancelSub?.remove?.();
+      progressSub?.remove?.();
+      startSub?.remove?.();
+      clearTimeout(fallbackTimer);
+      resolve();
+    };
+
+    const finishSub = Tts.addEventListener("tts-finish", finish);
+    const cancelSub = Tts.addEventListener("tts-cancel", finish);
+    const startSub = Tts.addEventListener("tts-start", () => {
+      callbacks?.onStart?.();
+    });
+    const progressSub = Tts.addEventListener("tts-progress", () => {
+      callbacks?.onProgress?.();
+    });
+    const fallbackTimer = setTimeout(finish, 90000);
+
+    speakConversational(value).catch(() => finish());
+  });
 }
 
 export function stopSpeaking() {

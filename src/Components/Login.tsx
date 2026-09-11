@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,17 +11,30 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  ActivityIndicator,
+  TurboModuleRegistry,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import {
+  getGoogleSignInSetupMessage,
+  isGoogleSignInConfigured,
+} from "../config/googleAuth";
 import { upsertSavedAccount } from "../services/accountStore";
 import { resetChatMemoryCache } from "../services/chatHistoryStore";
 import { useFormScroll } from "../hooks/useFormScroll";
+
+function isGoogleSignInNativeLinked(): boolean {
+  return TurboModuleRegistry.get("RNGoogleSignin") != null;
+}
 
 type Props = {
   goToSignup: () => void;
   goToForgot: () => void;
   goToHome: () => void;
 };
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
 
 const Login: React.FC<Props> = ({
   goToSignup,
@@ -31,13 +44,31 @@ const Login: React.FC<Props> = ({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
   const [modalVisible, setModalVisible] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const { scrollRef, onCardLayout, registerField, scrollToField } =
     useFormScroll();
+
+  const googleSignInNativeReady = useMemo(() => isGoogleSignInNativeLinked(), []);
+
+  const GoogleSigninButtonComponent = useMemo(() => {
+    if (!googleSignInNativeReady) {
+      return null;
+    }
+    try {
+      const mod = require("@react-native-google-signin/google-signin") as typeof import("@react-native-google-signin/google-signin");
+      return mod.GoogleSigninButton ?? null;
+    } catch {
+      return null;
+    }
+  }, [googleSignInNativeReady]);
 
   const showCustomAlert = (
     title: string,
@@ -50,9 +81,75 @@ const Login: React.FC<Props> = ({
     setModalVisible(true);
   };
 
+  const validateEmail = (value: string) => {
+    if (!value.trim()) {
+      setEmailError("Email is required");
+      return false;
+    }
+    if (!EMAIL_REGEX.test(value.trim())) {
+      setEmailError("Enter a valid email address");
+      return false;
+    }
+    setEmailError("");
+    return true;
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) {
+      setPasswordError("Password is required");
+      return false;
+    }
+    if (value.length < MIN_PASSWORD_LENGTH) {
+      setPasswordError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+      return false;
+    }
+    setPasswordError("");
+    return true;
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (emailError) validateEmail(value);
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (passwordError) validatePassword(value);
+  };
+
+  const persistLoginSession = async (data: {
+    token: string;
+    user: { id: string; name?: string; email: string };
+  }) => {
+    if (!data.token || !data.user?.email) {
+      showCustomAlert("Error", "Login response incomplete ❌");
+      return false;
+    }
+
+    const saved = await upsertSavedAccount({
+      id: data.user.id,
+      name: data.user.name || "User",
+      email: data.user.email,
+      token: data.token,
+    });
+
+    if (!saved.ok) {
+      showCustomAlert(
+        "Limit reached",
+        "Max 4 IDs at a time. Delete one from Profile to login another.",
+      );
+      return false;
+    }
+
+    resetChatMemoryCache();
+    return true;
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      showCustomAlert("Error", "Please fill all fields ❌");
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+
+    if (!isEmailValid || !isPasswordValid) {
       return;
     }
 
@@ -63,7 +160,7 @@ const Login: React.FC<Props> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
         }),
       });
@@ -72,26 +169,10 @@ const Login: React.FC<Props> = ({
 
       if (data.success) {
         try {
-          if (!data.token || !data.user?.email) {
-            showCustomAlert("Error", "Login response incomplete ❌");
+          const ok = await persistLoginSession(data);
+          if (!ok) {
             return;
           }
-
-          const saved = await upsertSavedAccount({
-            id: data.user.id,
-            name: data.user.name || "User",
-            email: data.user.email,
-            token: data.token,
-          });
-
-          if (!saved.ok) {
-            showCustomAlert(
-              "Limit reached",
-              "Max 4 IDs at a time. Delete one from Profile to login another.",
-            );
-            return;
-          }
-          resetChatMemoryCache();
         } catch {
           showCustomAlert("Error", "Could not save login session ❌");
           return;
@@ -114,6 +195,58 @@ const Login: React.FC<Props> = ({
         "Server Error",
         `Could not connect to backend\n${API_BASE_URL}\n${detail}`,
       );
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (!googleSignInNativeReady) {
+      showCustomAlert(
+        "Rebuild required",
+        "Google Sign-In native module is missing from this app build.\n\nRun: cd android && gradlew clean && cd .. && npx react-native run-android",
+      );
+      return;
+    }
+
+    if (!isGoogleSignInConfigured()) {
+      showCustomAlert("Not configured", getGoogleSignInSetupMessage());
+      return;
+    }
+
+    if (googleLoading) {
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const { signInWithGoogle } = await import("../services/googleAuthService");
+      const data = await signInWithGoogle();
+
+      if (data.success && data.token && data.user) {
+        const ok = await persistLoginSession({
+          token: data.token,
+          user: data.user,
+        });
+        if (!ok) {
+          return;
+        }
+
+        showCustomAlert("Success 🎉", "Signed in with Google", true);
+        setTimeout(() => {
+          setModalVisible(false);
+          goToHome();
+        }, 600);
+        return;
+      }
+
+      if (data.message !== "Google Sign-In cancelled") {
+        showCustomAlert("Error", data.message || "Google Sign-In failed ❌");
+      }
+    } catch (error) {
+      const detail =
+        error instanceof Error ? error.message : String(error);
+      showCustomAlert("Google Sign-In Error", detail);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -163,14 +296,21 @@ const Login: React.FC<Props> = ({
                 <TextInput
                   placeholder="Email Address"
                   placeholderTextColor="#888"
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    emailError ? styles.inputError : null,
+                  ]}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
+                  onBlur={() => validateEmail(email)}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   onFocus={() => scrollToField("email")}
                 />
+                {!!emailError && (
+                  <Text style={styles.errorText}>{emailError}</Text>
+                )}
               </View>
 
               <View
@@ -182,12 +322,19 @@ const Login: React.FC<Props> = ({
                 <TextInput
                   placeholder="Password"
                   placeholderTextColor="#888"
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    passwordError ? styles.inputError : null,
+                  ]}
                   secureTextEntry
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
+                  onBlur={() => validatePassword(password)}
                   onFocus={() => scrollToField("password")}
                 />
+                {!!passwordError && (
+                  <Text style={styles.errorText}>{passwordError}</Text>
+                )}
               </View>
 
               <TouchableOpacity onPress={goToForgot}>
@@ -197,6 +344,40 @@ const Login: React.FC<Props> = ({
               <TouchableOpacity style={styles.button} onPress={handleLogin}>
                 <Text style={styles.buttonText}>Login</Text>
               </TouchableOpacity>
+
+              <View style={styles.orDividerRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>OR</Text>
+                <View style={styles.orLine} />
+              </View>
+
+              {googleLoading ? (
+                <ActivityIndicator
+                  size="small"
+                  color="#6c4df7"
+                  style={styles.googleLoading}
+                />
+              ) : googleSignInNativeReady && GoogleSigninButtonComponent ? (
+                <GoogleSigninButtonComponent
+                  style={styles.googleButton}
+                  size={GoogleSigninButtonComponent.Size.Wide}
+                  color={GoogleSigninButtonComponent.Color.Light}
+                  onPress={handleGoogleLogin}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={styles.googleFallbackButton}
+                  onPress={handleGoogleLogin}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.googleFallbackInner}>
+                    <Text style={styles.googleFallbackG}>G</Text>
+                    <Text style={styles.googleFallbackText}>
+                      Continue with Google
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity onPress={goToSignup}>
                 <Text style={styles.signupLink}>New here? Create account</Text>
@@ -316,10 +497,21 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 4,
     fontSize: 16,
     backgroundColor: "white",
     color: "#000",
+  },
+
+  inputError: {
+    borderColor: "#ff3b30",
+  },
+
+  errorText: {
+    color: "#ff3b30",
+    fontSize: 13,
+    marginBottom: 12,
+    marginLeft: 4,
   },
 
   forgotPassword: {
@@ -344,6 +536,75 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
+  },
+
+  orDividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 20,
+    marginBottom: 16,
+  },
+
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#ddd",
+  },
+
+  orText: {
+    marginHorizontal: 12,
+    color: "#888",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  googleButton: {
+    width: "100%",
+    height: 48,
+  },
+
+  googleLoading: {
+    marginVertical: 12,
+  },
+
+  googleFallbackButton: {
+    width: "100%",
+    height: 48,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#dadce0",
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+
+  googleFallbackInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  googleFallbackG: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    overflow: "hidden",
+    textAlign: "center",
+    lineHeight: 22,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#4285F4",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#dadce0",
+    marginRight: 12,
+  },
+
+  googleFallbackText: {
+    fontSize: 16,
+    color: "#3c4043",
+    fontWeight: "500",
   },
 
   signupLink: {

@@ -111,18 +111,108 @@ export const MATCH_L2: WordTriple[] = [
 export const MEANING_L1: WordTriple[] = MATCH_L1;
 export const MEANING_L2: WordTriple[] = MATCH_L2;
 
+export type TrueFalseItem = {
+  statement: string;
+  answer: boolean;
+};
+
+export const TRUE_FALSE_L1: TrueFalseItem[] = [
+  { statement: "Muslims pray Salah five times every day.", answer: true },
+  { statement: "We do wudu with milk instead of water.", answer: false },
+  { statement: "Ramadan is the month of fasting.", answer: true },
+  { statement: "It is okay to skip wudu before Salah.", answer: false },
+  { statement: "The Quran was revealed to Prophet Muhammad (PBUH).", answer: true },
+  { statement: "Zakah means stealing from the poor.", answer: false },
+  { statement: "Masjid is a place for worship.", answer: true },
+  { statement: "We can eat pork in Islam.", answer: false },
+  { statement: "We say Bismillah before eating.", answer: true },
+  { statement: "Allah has 99 beautiful names.", answer: true },
+  { statement: "Fasting in Ramadan is only at night.", answer: false },
+  { statement: "Hajj is a pillar of Islam.", answer: true },
+  { statement: "We can lie if we are joking.", answer: false },
+  { statement: "Wudu is done before Salah.", answer: true },
+  { statement: "Salah is only on Fridays.", answer: false },
+  { statement: "Islam teaches us to be kind to parents.", answer: true },
+  { statement: "Muslims worship many gods.", answer: false },
+  { statement: "Prophet Muhammad (PBUH) was the last prophet.", answer: true },
+  { statement: "We should waste food according to Islam.", answer: false },
+  { statement: "Helping neighbours is a good deed.", answer: true },
+  { statement: "Backbiting is allowed in Islam.", answer: false },
+  { statement: "Eid is a celebration for Muslims.", answer: true },
+  { statement: "We wash our feet in the last step of wudu.", answer: true },
+  { statement: "Playing with water is the same as wudu.", answer: false },
+];
+
+export const TRUE_FALSE_L2: TrueFalseItem[] = [
+  { statement: "Shahada is declaring faith in one Allah.", answer: true },
+  { statement: "Tahajjud is a night prayer.", answer: true },
+  { statement: "We start wudu by washing our feet first.", answer: false },
+  { statement: "Halal means allowed in Islam.", answer: true },
+  { statement: "Haram means forbidden in Islam.", answer: true },
+  { statement: "Interest (Riba) is allowed in Islam.", answer: false },
+  { statement: "Sunnah means the way of the Prophet (PBUH).", answer: true },
+  { statement: "Alcohol is halal for Muslims.", answer: false },
+  { statement: "Angels record our good and bad deeds.", answer: true },
+  { statement: "We can pray without cleaning ourselves.", answer: false },
+  { statement: "Jannah is paradise in the Hereafter.", answer: true },
+  { statement: "Ghusl is full body purification.", answer: true },
+  { statement: "Stealing is okay if you are poor.", answer: false },
+  { statement: "Tayammum can be used when water is not available.", answer: true },
+  { statement: "We pray only when we feel like it.", answer: false },
+  { statement: "Dua means calling upon Allah.", answer: true },
+  { statement: "Masah means wiping the head in wudu.", answer: true },
+  { statement: "We should mock people who make mistakes.", answer: false },
+  { statement: "The Kaaba is in Makkah.", answer: true },
+  { statement: "Charity (Sadaqah) brings reward.", answer: true },
+  { statement: "Wudu breaks if you sleep deeply.", answer: true },
+  { statement: "Patience (Sabr) is loved by Allah.", answer: true },
+  { statement: "You never rinse your mouth in wudu.", answer: false },
+  { statement: "Islam teaches cleanliness.", answer: true },
+];
+
 export const WORDS_PER_ROUND = 5;
 export const ROUNDS_BEFORE_REPEAT = 4;
 export const MAX_WRONG_ATTEMPTS = 5;
 export const GRID_SIZE = 8;
 
+export function pickRoundItems<T>(pool: T[], playCount: number): T[] {
+  const setIndex = playCount % ROUNDS_BEFORE_REPEAT;
+  const start = setIndex * WORDS_PER_ROUND;
+  return pool.slice(start, start + WORDS_PER_ROUND);
+}
+
 export function pickRoundWords(
   pool: WordTriple[],
   playCount: number,
 ): WordTriple[] {
-  const setIndex = playCount % ROUNDS_BEFORE_REPEAT;
-  const start = setIndex * WORDS_PER_ROUND;
-  return pool.slice(start, start + WORDS_PER_ROUND);
+  return pickRoundItems(pool, playCount);
+}
+
+/** Har round mein true + false mix — pehle 5 sirf true na aayein */
+export function pickTrueFalseRound(
+  pool: TrueFalseItem[],
+  playCount: number,
+): TrueFalseItem[] {
+  const trues = pool.filter((i) => i.answer);
+  const falses = pool.filter((i) => !i.answer);
+  const falseCount = Math.min(2, falses.length);
+  const trueCount = WORDS_PER_ROUND - falseCount;
+
+  const pickFrom = <T>(arr: T[], start: number, count: number): T[] => {
+    const out: T[] = [];
+    for (let i = 0; i < count; i += 1) {
+      out.push(arr[(start + i) % arr.length]);
+    }
+    return out;
+  };
+
+  const tStart = (playCount * trueCount) % Math.max(trues.length, 1);
+  const fStart = (playCount * falseCount) % Math.max(falses.length, 1);
+
+  return shuffle([
+    ...pickFrom(trues, tStart, trueCount),
+    ...pickFrom(falses, fStart, falseCount),
+  ]);
 }
 
 export function wordForLang(w: WordTriple, lang: QuizLang): string {

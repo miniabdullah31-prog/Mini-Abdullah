@@ -122,7 +122,7 @@
 | Common Quran Words | `QuranWordsScreen.tsx` | `quranWords.ts` (35) | **DONE** | Singular / Dual / Plural · TTS |
 | Daily Surahs | `DailySurahsScreen.tsx` | `dailySurahs.ts` (10) | **DONE** | Short surahs · per-ayah Sudais play |
 
-**Services:** `quranTts.ts` · `quranAudio.ts` · `quranService.ts` — **DONE**
+**Services:** `quranTts.ts` · `quranService.ts` — **DONE**
 
 ---
 
@@ -300,7 +300,7 @@ Uses: gentle learning reminders, inspiration nudges, optional prayer alerts.
 | Inspiration (24h) | `src/services/inspirationService.ts` | **DONE** |
 | Chat API | `src/services/chatService.ts` | **DONE** |
 | Chat history | `src/services/chatHistoryStore.ts` | **DONE** |
-| Quran TTS / Sudais / offline | `quranTts` · `quranAudio` · `quranService` | **DONE** |
+| Quran TTS / offline | `quranTts` · `quranService` | **DONE** |
 | Dua audio | `src/services/duaAudio.ts` | **DONE** |
 | App rating store | Profile + popup persistence | **DONE** |
 | Notifications client | FCM + preference | **DONE** |

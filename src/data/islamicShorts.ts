@@ -2,6 +2,18 @@ import { ImageSourcePropType } from "react-native";
 
 /**
  * Islamic Shorts — cards open in YouTube (app or browser) via youtubeUrl.
+ *
+ * Cover mapping (src/assets/shorts/ → short):
+ * - prophet musa.png              → Miracle of Prophet Musa (AS)
+ * - hazrt younas.png              → Prophet Yunus (AS) inside the whale
+ * - hazrt ibrahim.png             → Prophet Ibrahim (AS) and the fire
+ * - daily good deed.png           → Daily good deed: a smile is sadaqah
+ * - helping parents at home.png   → Helping parents at home is worship
+ * - hzrt muhammad.png             → Seerah of Prophet Muhammad ﷺ
+ * - honesty.png                   → Honesty in daily work
+ * - hazrt nuh.png                 → Prophet Nuh (AS) and the ark
+ * - hazrt yousaf.png              → Prophet Yusuf (AS)
+ * (no cover image)                → Removing harm from the path is charity
  */
 
 export type ShortClip = {
@@ -22,7 +34,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Miracle of Prophet Musa (AS) — when the sea split by Allah's command. A reminder that with tawakkul, even the impossible becomes easy.",
     youtubeUrl: "https://www.youtube.com/watch?v=dlA_UuwzL54",
-    cover: null,
+    cover: require("../assets/shorts/prophet musa.png"),
     colors: ["#1F8A70", "#3CB89A"],
   },
   {
@@ -30,7 +42,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Prophet Yunus (AS) inside the whale — darkness turned into light through sincere istighfar. Never lose hope in Allah's mercy.",
     youtubeUrl: "https://www.youtube.com/watch?v=c2I-MdrBkUY",
-    cover: null,
+    cover: require("../assets/shorts/hazrt younas.png"),
     colors: ["#2E6BFF", "#5AA0FF"],
   },
   {
@@ -38,7 +50,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Prophet Ibrahim (AS) and the fire — when you choose Allah over fear, He makes the fire cool and safe for you.",
     youtubeUrl: "https://www.youtube.com/watch?v=lZu173pTldI",
-    cover: null,
+    cover: require("../assets/shorts/hazrt ibrahim.png"),
     colors: ["#C45C2A", "#E08A4F"],
   },
   {
@@ -46,7 +58,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Daily good deed: a smile is sadaqah. Small kindness in ordinary moments earns reward with Allah.",
     youtubeUrl: "https://www.youtube.com/watch?v=1FNiEmrI4b4",
-    cover: null,
+    cover: require("../assets/shorts/daily good deed.png"),
     colors: ["#0F9B8E", "#34D1BF"],
   },
   {
@@ -54,7 +66,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Helping parents at home is worship. Everyday chores done with love become hasanat.",
     youtubeUrl: "https://www.youtube.com/watch?v=6crISCrrzzY",
-    cover: null,
+    cover: require("../assets/shorts/helping parents at home.png"),
     colors: ["#7B2FF7", "#5B33C4"],
   },
   {
@@ -62,7 +74,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Seerah of Prophet Muhammad ﷺ — his kindness to children, neighbours, and even those who hurt him.",
     youtubeUrl: "https://www.youtube.com/watch?v=MCGdv56bQBM",
-    cover: null,
+    cover: require("../assets/shorts/hzrt muhammad.png"),
     colors: ["#B06AB3", "#7B3FA0"],
   },
   {
@@ -70,7 +82,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Honesty in daily work — the Prophet ﷺ taught that truthful trade brings barakah. Earn halal, speak truth.",
     youtubeUrl: "https://www.youtube.com/watch?v=4rWoKBecS0Y",
-    cover: null,
+    cover: require("../assets/shorts/honesty.png"),
     colors: ["#1F8A70", "#2E6BFF"],
   },
   {
@@ -78,7 +90,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Prophet Nuh (AS) and the ark — patience for years, then Allah's help. Keep doing good even when few listen.",
     youtubeUrl: "https://www.youtube.com/watch?v=d2D6WuKlymM",
-    cover: null,
+    cover: require("../assets/shorts/hazrt nuh.png"),
     colors: ["#C45C2A", "#7B2FF7"],
   },
   {
@@ -94,7 +106,7 @@ export const ISLAMIC_SHORTS: ShortClip[] = [
     caption:
       "Prophet Yusuf (AS) — sabr through trials, then honour from Allah. Beautiful patience is never wasted.",
     youtubeUrl: "https://www.youtube.com/watch?v=gadnINKEibU",
-    cover: null,
+    cover: require("../assets/shorts/hazrt yousaf.png"),
     colors: ["#5B33C4", "#B06AB3"],
   },
 ];

@@ -9,6 +9,7 @@ import {
   LayoutChangeEvent,
 } from "react-native";
 import BackButton from "../BackButton";
+import { useFeatureBackHandler } from "../../hooks/useFeatureBackHandler";
 import {
   GRID_SIZE,
   MAX_WRONG_ATTEMPTS,
@@ -217,6 +218,62 @@ const WordSearchGame: React.FC<Props> = ({ onExitToHub }) => {
     }
   }, [triesLeft, clearOpen, failOpen]);
 
+  const goBackStep = useCallback((): boolean => {
+    lockedRef.current = false;
+    if (clearOpen) {
+      setClearOpen(false);
+      return true;
+    }
+    if (failOpen) {
+      setFailOpen(false);
+      return true;
+    }
+    if (selecting.length > 0) {
+      startRef.current = null;
+      selectingRef.current = [];
+      selectKeyRef.current = "";
+      setSelecting([]);
+      return true;
+    }
+    if (found.length > 0) {
+      const last = found[found.length - 1];
+      const nextFound = found.slice(0, -1);
+      foundRef.current = nextFound;
+      setFound(nextFound);
+      const placedMatch = placedRef.current.find(
+        (p) =>
+          p.word === last || p.word.toUpperCase() === last.toUpperCase(),
+      );
+      if (placedMatch) {
+        setFoundCells((prev) => {
+          const next = new Set(prev);
+          placedMatch.cells.forEach((c) => next.delete(cellKey(c)));
+          return next;
+        });
+      }
+      return true;
+    }
+    if (level > 1) {
+      startLevel(level - 1, lang, false);
+      return true;
+    }
+    return false;
+  }, [clearOpen, failOpen, selecting.length, found, level, lang, startLevel]);
+
+  const onBack = useCallback(() => {
+    if (!goBackStep()) {
+      onExitToHub();
+    }
+  }, [goBackStep, onExitToHub]);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      onBack();
+      return true;
+    }, [onBack]),
+    [onBack],
+  );
+
   const onLangChange = (l: QuizLang) => {
     setLang(l);
     startLevel(level, l);
@@ -365,7 +422,7 @@ const WordSearchGame: React.FC<Props> = ({ onExitToHub }) => {
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton onPress={onExitToHub} />
+        <BackButton onPress={onBack} />
         <Text style={styles.title}>{ui.wordSearch}</Text>
         <Text style={styles.sub}>
           {ui.level} {level} · {ui.attemptsLeft}: {triesLeft}

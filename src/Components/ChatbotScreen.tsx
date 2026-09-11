@@ -21,6 +21,7 @@ import Tts from "react-native-tts";
 import Voice from "@react-native-voice/voice";
 import BackButton from "./BackButton";
 import { sendChatMessage, ChatHistoryItem } from "../services/chatService";
+import { clearVoiceListenerHandlers } from "../services/voiceInputService";
 import {
   bootstrapChatStore,
   openHistoryChat,
@@ -32,6 +33,7 @@ import {
   ChatSession,
   WELCOME_MESSAGE,
 } from "../services/chatHistoryStore";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = {
   goBack: () => void;
@@ -80,6 +82,21 @@ const ChatbotScreen: React.FC<Props> = ({ goBack }) => {
 
   const scrollRef = useRef<ScrollView>(null);
   const sendingRef = useRef(false);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (deleteId) {
+        setDeleteId(null);
+        return true;
+      }
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        return true;
+      }
+      return false;
+    }, [deleteId, isSidebarOpen]),
+    [deleteId, isSidebarOpen],
+  );
 
   const speakText = useCallback(async (id: string, text: string) => {
     try {
@@ -143,7 +160,8 @@ const ChatbotScreen: React.FC<Props> = ({ goBack }) => {
       Tts.stop().catch(() => undefined);
       finishSub?.remove?.();
       cancelSub?.remove?.();
-      Voice.destroy().then(Voice.removeAllListeners).catch(() => undefined);
+      clearVoiceListenerHandlers();
+      Voice.cancel().catch(() => undefined);
     };
   }, []);
 

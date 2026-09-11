@@ -5,6 +5,7 @@ const router = express.Router();
 const {
   signup,
   login,
+  googleLogin,
   forgotPassword,
   verifyOtp,
   resetPassword,
@@ -24,6 +25,7 @@ const otpLimiter = rateLimit({
 
 router.post("/signup", signup);
 router.post("/login", login);
+router.post("/google", googleLogin);
 router.post("/forgot-password", otpLimiter, forgotPassword);
 router.post("/verify-otp", otpLimiter, verifyOtp);
 router.post("/reset-password", otpLimiter, resetPassword);

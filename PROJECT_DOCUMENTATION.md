@@ -285,7 +285,7 @@ Profile → Contact Support → write help message → send to support email.
 - **List:** `ReadQuranScreen.tsx` — searchable 30 juz (`juzMeta.ts`).  
 - **Detail:** `ParaAyahsScreen.tsx` — ayahs from offline JSON `src/data/quran/juz-1.json` … `juz-30.json`.  
 - **Languages:** Chips Arabic / Urdu / English.  
-- **Audio:** Sheikh Sudais per ayah (`quranAudio.ts`) — stream + cache.  
+- **Audio:** Female Arabic TTS per ayah (`quranTts.ts`) on play.
 - **Service:** `quranService.ts` loads bundled JSON offline.  
 - **Status:** Complete.
 
@@ -515,7 +515,7 @@ Base URL example: `http://<HOST>:5000`
 | Chat API | `src/services/chatService.ts` | POST chat |
 | Chat history | `src/services/chatHistoryStore.ts` | Per-user sessions |
 | Quran TTS | `src/services/quranTts.ts` | Speak Arabic |
-| Sudais audio | `src/services/quranAudio.ts` | Download/cache/play ayah MP3 |
+| Ayah TTS | `src/services/quranTts.ts` | Female voice Arabic pronunciation on play |
 | Dua audio | `src/services/duaAudio.ts` | Play dua recordings |
 | Quran offline | `src/services/quranService.ts` | Load juz JSON |
 | Quiz plays | `src/services/quizPlayStore.ts` | Round rotation counters |

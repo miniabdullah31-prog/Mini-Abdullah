@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import BackButton from "../BackButton";
+import { useFeatureBackHandler } from "../../hooks/useFeatureBackHandler";
 import {
   MAX_WRONG_ATTEMPTS,
   MATCH_L1,
@@ -46,6 +47,7 @@ const MatchGame: React.FC<Props> = ({ onExitToHub }) => {
   const [left, setLeft] = useState<PairItem[]>([]);
   const [right, setRight] = useState<PairItem[]>([]);
   const [matched, setMatched] = useState<Set<string>>(new Set());
+  const [matchHistory, setMatchHistory] = useState<string[]>([]);
   const [selected, setSelected] = useState<PairItem | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [failOpen, setFailOpen] = useState(false);
@@ -75,6 +77,7 @@ const MatchGame: React.FC<Props> = ({ onExitToHub }) => {
     setLeft(shuffle(arItems));
     setRight(shuffle(ansItems));
     setMatched(new Set());
+    setMatchHistory([]);
     matchedCountRef.current = 0;
     totalRef.current = round.length;
     setSelected(null);
@@ -111,6 +114,61 @@ const MatchGame: React.FC<Props> = ({ onExitToHub }) => {
     }
   }, [triesLeft, clearOpen, failOpen]);
 
+  const goBackStep = useCallback((): boolean => {
+    lockedRef.current = false;
+    setFlashBad(null);
+    if (clearOpen) {
+      setClearOpen(false);
+      return true;
+    }
+    if (failOpen) {
+      setFailOpen(false);
+      return true;
+    }
+    if (selected) {
+      setSelected(null);
+      return true;
+    }
+    if (matchHistory.length > 0) {
+      const last = matchHistory[matchHistory.length - 1];
+      setMatchHistory((h) => h.slice(0, -1));
+      setMatched((prev) => {
+        const next = new Set(prev);
+        next.delete(last);
+        return next;
+      });
+      matchedCountRef.current = Math.max(0, matchedCountRef.current - 1);
+      return true;
+    }
+    if (level > 1) {
+      startLevel(level - 1, answerLang, false);
+      return true;
+    }
+    return false;
+  }, [
+    clearOpen,
+    failOpen,
+    selected,
+    matchHistory,
+    level,
+    answerLang,
+    startLevel,
+  ]);
+
+  const onBack = useCallback(() => {
+    if (!goBackStep()) {
+      onExitToHub();
+    }
+  }, [goBackStep, onExitToHub]);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      onBack();
+      return true;
+    }, [onBack]),
+    [onBack],
+  );
+
   const onAnswerLang = (l: QuizLang) => {
     if (l === "ar") return;
     setAnswerLang(l);
@@ -125,6 +183,7 @@ const MatchGame: React.FC<Props> = ({ onExitToHub }) => {
       return next;
     });
     matchedCountRef.current += 1;
+    setMatchHistory((h) => [...h, wordKey]);
     setSelected(null);
     if (matchedCountRef.current >= totalRef.current) {
       lockedRef.current = true;
@@ -214,7 +273,7 @@ const MatchGame: React.FC<Props> = ({ onExitToHub }) => {
     <View style={styles.root}>
       <SafeAreaView style={styles.container}>
         <View style={styles.flex}>
-          <BackButton onPress={onExitToHub} />
+          <BackButton onPress={onBack} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
             <ImageBackground
               source={require("../../homeAssets/Quotebg.jpg")}

@@ -5,6 +5,8 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
+  Pressable,
+  Platform,
   ScrollView,
   SafeAreaView,
   StatusBar,
@@ -36,7 +38,13 @@ import {
   setCachedPrayerTimes,
 } from "../services/appPrefsStore";
 import { refreshPrayerNotificationsIfEnabled } from "../services/notificationService";
+import {
+  fetchTodayDailyContent,
+  FALLBACK_DAILY,
+  DailyLearningContent,
+} from "../services/dailyContentService";
 import RateAppModal from "./RateAppModal";
+import SmoothPressable from "./SmoothPressable";
 
 const FALLBACK_QUOTE = {
   arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
@@ -90,6 +98,8 @@ type Props = {
   goToQuiz: () => void;
   goToDailySunnah: () => void;
   goToProfile: () => void;
+  goToTalkingAbdullah: () => void;
+  goToTutor: () => void;
 };
 
 const Home: React.FC<Props> = ({
@@ -102,6 +112,8 @@ const Home: React.FC<Props> = ({
   goToQuiz,
   goToDailySunnah,
   goToProfile,
+  goToTalkingAbdullah,
+  goToTutor,
 }) => {
   const [prayerModal, setPrayerModal] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState<any>(null);
@@ -114,6 +126,10 @@ const Home: React.FC<Props> = ({
   const [displayName, setDisplayName] = useState("Friend");
   const [ratingVisible, setRatingVisible] = useState(false);
   const [savedStars, setSavedStars] = useState(0);
+  const [dailyLearning, setDailyLearning] =
+    useState<DailyLearningContent>(FALLBACK_DAILY);
+  const [dailyLoading, setDailyLoading] = useState(true);
+  const [dailyError, setDailyError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -159,6 +175,27 @@ const Home: React.FC<Props> = ({
 
     loadDailyQuote();
     loadUserAndRating();
+
+    const loadDailyLearning = async () => {
+      try {
+        setDailyLoading(true);
+        setDailyError(false);
+        const content = await fetchTodayDailyContent();
+        if (active) {
+          setDailyLearning(content);
+          setDailyError(!content.date);
+        }
+      } catch {
+        if (active) {
+          setDailyError(true);
+          setDailyLearning(FALLBACK_DAILY);
+        }
+      } finally {
+        if (active) setDailyLoading(false);
+      }
+    };
+
+    loadDailyLearning();
 
     const pollMs = Math.max(60 * 60 * 1000, Math.floor(QUOTE_ROTATION_MS / 4));
     const intervalId = setInterval(loadDailyQuote, pollMs);
@@ -284,11 +321,11 @@ const Home: React.FC<Props> = ({
     },
     {
       id: 8,
-      title: "Quiz",
-      subtitle: "Test your Islamic knowledge",
+      title: "Games",
+      subtitle: "Play & learn with fun games",
       image: require("../homeAssets/goldcup.png"),
       colors: ["#F472B6", "#DB2777"] as [string, string],
-      deco: "trophy",
+      deco: "game-controller",
     },
   ];
 
@@ -364,13 +401,73 @@ const Home: React.FC<Props> = ({
             </ImageBackground>
           </ImageBackground>
 
+          <View style={styles.dailySection}>
+            <View style={styles.dailySectionHeader}>
+              <Text style={styles.dailySectionTitle}>🌟 Today's Learning</Text>
+              {dailyLoading && (
+                <ActivityIndicator size="small" color="#6C4DF7" />
+              )}
+            </View>
+            {dailyError && (
+              <Text style={styles.dailyOfflineHint}>
+                Offline mode — showing sample learning content
+              </Text>
+            )}
+
+            <View style={styles.dailyCard}>
+              <View style={styles.dailyCardTop}>
+                <Text style={styles.dailyEmoji}>🌟</Text>
+                <Text style={styles.dailyCardLabel}>Word of the Day</Text>
+              </View>
+              <Text style={styles.dailyWord}>{dailyLearning.word}</Text>
+              <Text style={styles.dailyMeaning}>{dailyLearning.wordMeaning}</Text>
+              {!!dailyLearning.wordExample && (
+                <Text style={styles.dailyExample}>{dailyLearning.wordExample}</Text>
+              )}
+            </View>
+
+            <SmoothPressable
+              radius={22}
+              onPress={goToDuas}
+              style={[styles.dailyCard, styles.pressClip]}
+            >
+              <View style={styles.dailyCardTop}>
+                <Text style={styles.dailyEmoji}>🤲</Text>
+                <Text style={styles.dailyCardLabel}>Dua of the Day</Text>
+                <Ionicons name="chevron-forward" size={18} color="#6C4DF7" />
+              </View>
+              <Text style={styles.dailyDuaArabic}>{dailyLearning.dua}</Text>
+              <Text style={styles.dailyMeaning}>{dailyLearning.duaMeaning}</Text>
+            </SmoothPressable>
+
+            <SmoothPressable
+              radius={22}
+              onPress={goToQuiz}
+              style={[styles.dailyCard, styles.dailyQuestCard, styles.pressClip]}
+            >
+              <View style={styles.dailyCardTop}>
+                <Text style={styles.dailyEmoji}>🎮</Text>
+                <Text style={styles.dailyCardLabel}>Daily Quest</Text>
+                <Ionicons name="chevron-forward" size={18} color="#DB2777" />
+              </View>
+              <Text style={styles.dailyQuestTitle}>{dailyLearning.questTitle}</Text>
+              <Text style={styles.dailyMeaning}>{dailyLearning.questDescription}</Text>
+              <View style={styles.rewardRow}>
+                <Text style={styles.rewardBadge}>+{dailyLearning.rewardXP} XP</Text>
+                <Text style={styles.rewardBadgeCoins}>
+                  +{dailyLearning.rewardCoins} coins
+                </Text>
+              </View>
+            </SmoothPressable>
+          </View>
+
           <View style={styles.grid}>
             {cards.map((item) => (
-              <TouchableOpacity
+              <SmoothPressable
                 key={item.id}
-                style={styles.cardWrapper}
-                activeOpacity={0.85}
+                radius={24}
                 onPress={() => handleCardPress(item.id)}
+                style={styles.cardWrapper}
               >
                 <LinearGradient
                   colors={item.colors}
@@ -391,10 +488,26 @@ const Home: React.FC<Props> = ({
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
                 </LinearGradient>
-              </TouchableOpacity>
+              </SmoothPressable>
             ))}
           </View>
         </ScrollView>
+
+        <Pressable
+          android_ripple={{ color: "transparent" }}
+          onPress={goToTalkingAbdullah}
+          accessibilityRole="button"
+          accessibilityLabel="Talk to Abdullah"
+          style={styles.talkFab}
+        >
+          <LinearGradient
+            colors={["#9B6DFF", "#6C4DF7"]}
+            style={styles.talkFabInner}
+          >
+            <Ionicons name="mic" size={26} color="#fff" />
+          </LinearGradient>
+          <Text style={styles.talkFabText}>Talk</Text>
+        </Pressable>
 
         <Modal transparent visible={prayerModal} animationType="slide">
           <View style={styles.modalBg}>
@@ -528,8 +641,20 @@ const Home: React.FC<Props> = ({
               accessibilityRole="button"
               accessibilityLabel="Home"
             >
-              <Ionicons name="home" size={30} color="#4B2AA8" />
+              <Ionicons name="home" size={26} color="#4B2AA8" />
               <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.navItem}
+              onPress={goToTutor}
+              accessibilityRole="button"
+              accessibilityLabel="Tutor"
+            >
+              <Ionicons name="school" size={26} color="#B8A4F0" />
+              <Text style={[styles.navText, styles.navTextInactive]}>
+                Tutor
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -660,6 +785,108 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 18,
   },
+  dailySection: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  dailySectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  dailySectionTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#4B2AA8",
+  },
+  dailyOfflineHint: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  dailyCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E8E0FF",
+  },
+  dailyQuestCard: {
+    borderColor: "#FBCFE8",
+    backgroundColor: "#FFF7FB",
+  },
+  dailyCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  dailyEmoji: { fontSize: 20 },
+  dailyCardLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#6C4DF7",
+  },
+  dailyWord: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#4B2AA8",
+  },
+  dailyDuaArabic: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#4B2AA8",
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  dailyMeaning: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#475569",
+    fontWeight: "600",
+  },
+  dailyExample: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#64748B",
+    fontStyle: "italic",
+  },
+  dailyQuestTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#DB2777",
+    marginBottom: 4,
+  },
+  rewardRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  rewardBadge: {
+    backgroundColor: "#EDE9FE",
+    color: "#6C4DF7",
+    fontWeight: "800",
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  rewardBadgeCoins: {
+    backgroundColor: "#FEF3C7",
+    color: "#B45309",
+    fontWeight: "800",
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -668,13 +895,24 @@ const styles = StyleSheet.create({
     marginTop: 28,
     paddingBottom: 120,
   },
-  cardWrapper: { width: "48%", marginBottom: 18 },
+  /** Scale-only press — never fade opacity (that flashes a white square). */
+  softPress: {
+    transform: [{ scale: 0.985 }],
+  },
+  pressClip: {
+    overflow: "hidden",
+  },
+  cardWrapper: {
+    width: "48%",
+    marginBottom: 18,
+    borderRadius: 24,
+    overflow: "hidden",
+  },
   card: {
     borderRadius: 24,
     padding: 14,
     alignItems: "center",
     overflow: "hidden",
-    elevation: 5,
     minHeight: 200,
     position: "relative",
   },
@@ -736,6 +974,26 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     paddingVertical: 0,
     zIndex: 9999,
+  },
+  talkFab: {
+    position: "absolute",
+    right: 22,
+    bottom: 92,
+    alignItems: "center",
+    zIndex: 9998,
+  },
+  talkFabInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  talkFabText: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#4B2AA8",
   },
   navbarInner: {
     backgroundColor: "#fff",

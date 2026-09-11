@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -15,12 +15,14 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
+import SmoothPressable from "./SmoothPressable";
 import ReadQuranScreen from "./ReadQuranScreen";
 import ParaAyahsScreen from "./ParaAyahsScreen";
 import NooraniQaidaScreen from "./NooraniQaidaScreen";
 import TajweedScreen from "./TajweedScreen";
 import QuranWordsScreen from "./QuranWordsScreen";
 import DailySurahsScreen from "./DailySurahsScreen";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = {
   goBack: () => void;
@@ -89,6 +91,22 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
     if (cardId === 4) setView("words");
     if (cardId === 5) setView("surahs");
   };
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (view === "para" && selectedJuz != null) {
+        setSelectedJuz(null);
+        setView("read");
+        return true;
+      }
+      if (view !== "hub") {
+        setView("hub");
+        return true;
+      }
+      return false;
+    }, [view, selectedJuz]),
+    [view, selectedJuz],
+  );
 
   if (view === "para" && selectedJuz != null) {
     return (
@@ -171,9 +189,9 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
 
         <View style={styles.cardsContainer}>
           {filteredCards.map((item) => (
-            <TouchableOpacity
+            <SmoothPressable
               key={item.id}
-              activeOpacity={0.9}
+              radius={20}
               style={styles.cardWrapper}
               onPress={() => handleCardPress(item.id)}
             >
@@ -193,7 +211,7 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
               </LinearGradient>
-            </TouchableOpacity>
+            </SmoothPressable>
           ))}
 
           {filteredCards.length === 0 && (
@@ -270,11 +288,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 20,
     overflow: "hidden",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
   },
   card: {
     borderRadius: 20,

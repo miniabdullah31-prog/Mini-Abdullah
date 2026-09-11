@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,10 +12,12 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
+import SmoothPressable from "./SmoothPressable";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DAILY_SUNNAHS, DailySunnah } from "../data/dailySunnahs";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
+import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
 type LangMode = "ur" | "en";
@@ -30,19 +32,30 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
     };
   }, []);
 
+  const closeDetail = useCallback(() => {
+    stopSpeaking();
+    setLang("en");
+    setSelected(null);
+  }, []);
+
+  useFeatureBackHandler(
+    useCallback(() => {
+      if (selected) {
+        closeDetail();
+        return true;
+      }
+      return false;
+    }, [selected, closeDetail]),
+    [selected, closeDetail],
+  );
+
   if (selected) {
     const isUrdu = lang === "ur";
 
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-        <BackButton
-          onPress={() => {
-            stopSpeaking();
-            setLang("en");
-            setSelected(null);
-          }}
-        />
+        <BackButton onPress={closeDetail} />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
@@ -155,9 +168,9 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
 
         <View style={styles.cardsContainer}>
           {DAILY_SUNNAHS.map((item) => (
-            <TouchableOpacity
+            <SmoothPressable
               key={item.id}
-              activeOpacity={0.9}
+              radius={20}
               style={styles.cardWrapper}
               onPress={() => {
                 setLang("en");
@@ -184,7 +197,7 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
               </LinearGradient>
-            </TouchableOpacity>
+            </SmoothPressable>
           ))}
         </View>
       </ScrollView>
@@ -248,7 +261,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 20,
     overflow: "hidden",
-    elevation: 4,
   },
   card: {
     minHeight: 88,

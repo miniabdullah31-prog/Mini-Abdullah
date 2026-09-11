@@ -46,16 +46,11 @@ Navigation is screen-number based in `App.tsx` (screens **1–19**). Status: **W
 | 18 | Islamic Quiz (3 games) | `IslamicQuizScreen.tsx` + `quiz/*` | Working |
 | 19 | Profile (multi-account, support, rate, notifications) | `ProfileScreen.tsx` | Working |
 
-### Orphan / not in `App.tsx` navigation
+### Orphan / removed (not in navigation)
 
-| Module | File | Status |
-|--------|------|--------|
-| Masail | `MasailScreen.tsx` | Stub (“Content coming soon”) |
-| Ibaadat | `IbaadatScreen.tsx` | Stub |
-| Seerah | `SeerahScreen.tsx` | Stub |
-| Pillars | `PillarsScreen.tsx` | Stub |
+Stub screens (Masail, Ibaadat, Seerah, Pillars) were removed — not wired in `App.tsx`.
 
-**Count (wired screens):** 19 top-level + 5 Quran sub-screens ≈ **24 working UI surfaces**. **4 stub files** exist but are not demo routes.
+**Count (wired screens):** 19 top-level + 5 Quran sub-screens ≈ **24 working UI surfaces**.
 
 ---
 
@@ -76,7 +71,7 @@ Base: Express on `backend/server.js` (default port **5000**). MongoDB via Mongoo
 | POST | `/api/chat` | **JWT required** | Working | Gemini via `@google/generative-ai`; rate-limited |
 | POST | `/api/support` | **JWT required** | Working | Saves `SupportMessage`; optional email to `SUPPORT_TO_EMAIL` |
 
-**Not active in current server (orphaned):** `backend/routes/backup` references old `/profile` + missing `profileController` / old middleware path — **not mounted**.
+**Not active:** legacy `routes/backup` removed (was never mounted).
 
 ---
 
@@ -188,7 +183,7 @@ Suggested live demo order:
     Helmet headers, auth + OTP + chat rate limits, CORS with Authorization allowed, 100kb JSON limit, bcrypt passwords, no logging of passwords/tokens, support/chat require login.
 
 11. **What is still incomplete?**  
-    Orphan stub screens (Masail/Ibaadat/Seerah/Pillars) not in navigation; no server-side profile CRUD mounted; no FCM push; chat depends on valid Gemini key and network.
+    No server-side profile CRUD mounted; no FCM push; chat depends on valid Gemini key and network.
 
 12. **Why Express as a separate backend?**  
     Keeps secrets (JWT secret, Gemini, SMTP) off the client, centralizes auth and AI, and lets the phone call a LAN IP during development.
@@ -197,8 +192,8 @@ Suggested live demo order:
 
 ## 7. Known gaps / future work
 
-- Wire or remove stub screens: Masail, Ibaadat, Seerah, Pillars.
-- Mount real **profile GET/PUT** APIs if server-side profile editing is required (orphan `routes/backup` only).
+- Mount server-side profile GET/PUT if needed.
+- Mount real **profile GET/PUT** APIs if server-side profile editing is required.
 - **FCM / remote push** (optional) if panel wants cloud reminders — currently local-only.
 - Stronger production CORS (`CORS_ORIGIN`), refresh-token rotation, account lockout after failed logins.
 - Align outdated docs (`MODULES.md` Firebase claims) with code.
