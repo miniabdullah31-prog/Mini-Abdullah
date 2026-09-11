@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   SafeAreaView,
   ScrollView,
   ImageBackground,
-  Image,
   StatusBar,
   Linking,
   Alert,
@@ -18,7 +17,13 @@ import HeaderSpark from "./HeaderSparkStar";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import BackButton from "./BackButton";
 import SmoothPressable from "./SmoothPressable";
+import RemoteImage from "./RemoteImage";
 import { ISLAMIC_SHORTS, ShortClip } from "../data/islamicShorts";
+import {
+  fetchMediaByCategory,
+  indexMediaByLocalId,
+  RemoteMedia,
+} from "../services/mediaService";
 
 type Props = { goBack: () => void };
 
@@ -31,6 +36,22 @@ const CARD_W = (SCREEN_W - GRID_PAD * 2 - COL_GAP) / 2;
 const CARD_H = Math.round(CARD_W * 1.25);
 
 const StoriesScreen: React.FC<Props> = ({ goBack }) => {
+  const [remoteById, setRemoteById] = useState<Record<number, RemoteMedia>>({});
+
+  useEffect(() => {
+    let active = true;
+    fetchMediaByCategory("stories")
+      .then((items) => {
+        if (active) setRemoteById(indexMediaByLocalId(items));
+      })
+      .catch(() => {
+        // Keep bundled covers — app stays usable offline / if media API is down.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const openOnYouTube = useCallback(async (item: ShortClip) => {
     const url = item.youtubeUrl?.trim();
     if (!url || !url.startsWith("https://")) {
@@ -80,9 +101,10 @@ const StoriesScreen: React.FC<Props> = ({ goBack }) => {
                   style={styles.card}
                 >
                   {!item.cover && <GradCardDecor />}
-                  {item.cover ? (
-                    <Image
-                      source={item.cover}
+                  {item.cover || remoteById[item.id]?.thumbnailUrl ? (
+                    <RemoteImage
+                      remoteUri={remoteById[item.id]?.thumbnailUrl}
+                      localSource={item.cover}
                       style={styles.cover}
                       resizeMode="cover"
                     />

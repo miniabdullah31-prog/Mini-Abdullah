@@ -18,6 +18,8 @@ const tutorRoutes = require("./routes/tutorRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const { startDailyNotificationScheduler } = require("./services/dailyNotificationScheduler");
 const { seedTutorsIfNeeded } = require("./services/tutorService");
+const { seedMediaIfNeeded, PUBLIC_DIR } = require("./services/mediaService");
+const mediaRoutes = require("./routes/mediaRoutes");
 
 const app = express();
 
@@ -74,6 +76,19 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/daily-content", dailyContentRoutes);
 app.use("/api/tutors", tutorRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/media", mediaRoutes);
+
+app.use(
+  "/media",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(PUBLIC_DIR, {
+    maxAge: "7d",
+    index: false,
+  }),
+);
 
 const port = process.env.PORT || 5000;
 
@@ -86,6 +101,11 @@ async function start() {
         await seedTutorsIfNeeded();
       } catch (seedErr) {
         console.log("Tutor seed error:", seedErr.message);
+      }
+      try {
+        await seedMediaIfNeeded();
+      } catch (mediaSeedErr) {
+        console.log("Media seed error:", mediaSeedErr.message);
       }
     } else {
       console.log("MONGO_URI missing — DB features unavailable");
