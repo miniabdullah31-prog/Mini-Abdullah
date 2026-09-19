@@ -5,7 +5,13 @@ async function list(req, res) {
   try {
     const category = req.query.category ? String(req.query.category) : undefined;
     const type = req.query.type ? String(req.query.type) : undefined;
+    const started = Date.now();
     const data = await listMedia({ category, type });
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `[stories-perf] GET /api/media category=${category || "all"} ${Date.now() - started}ms items=${data.length}`,
+      );
+    }
     return res.json({ success: true, data });
   } catch (err) {
     console.log("[media] list error:", err.message);

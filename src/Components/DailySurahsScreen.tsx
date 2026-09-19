@@ -88,12 +88,12 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+        <BackButton onPress={closeDetail} />
         <ImageBackground
           source={require("../homeAssets/Quotebg.jpg")}
           style={styles.detailHeader}
           imageStyle={styles.headerRadius}
         >
-          <BackButton onPress={closeDetail} />
           <Text style={styles.headerTitle}>{selected.name}</Text>
           <Text style={styles.headerArabic}>{selected.nameArabic}</Text>
           <Text style={styles.headerSub}>
@@ -160,12 +160,12 @@ const DailySurahsScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
       <ImageBackground
         source={require("../homeAssets/Quotebg.jpg")}
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton onPress={goBack} />
         <Text style={styles.headerTitle}>Daily Surahs</Text>
         <Text style={styles.headerSub}>Short surahs · Memorize offline</Text>
         <HeaderSpark />

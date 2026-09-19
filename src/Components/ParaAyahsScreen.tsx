@@ -114,18 +114,18 @@ const ParaAyahsScreen: React.FC<Props> = ({ juzNumber, goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton
+        onPress={() => {
+          stopSpeaking();
+          goBack();
+        }}
+      />
 
       <ImageBackground
         source={require("../homeAssets/Quotebg.jpg")}
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton
-          onPress={() => {
-            stopSpeaking();
-            goBack();
-          }}
-        />
         <Text style={styles.headerTitle}>Para {juzNumber}</Text>
         <Text style={styles.headerArabic}>{juzMeta?.nameArabic || ""}</Text>
         <Text style={styles.headerSubtitle}>

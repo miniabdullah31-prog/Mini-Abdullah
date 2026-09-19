@@ -16,6 +16,7 @@ import BackButton from "../BackButton";
 import SmoothPressable from "../SmoothPressable";
 import HeaderSpark from "../HeaderSparkStar";
 import GameLauncher from "./GameLauncher";
+import { playUiSound } from "../../services/soundService";
 import {
   filterGames,
   GameId,
@@ -103,7 +104,10 @@ const GamesHubScreen: React.FC<Props> = ({ goBack }) => {
               key={item.id}
               radius={26}
               style={styles.cardWrap}
-              onPress={() => setActiveGame(item.id)}
+              onPress={() => {
+                playUiSound("tap");
+                setActiveGame(item.id);
+              }}
             >
               <LinearGradient
                 colors={item.colors}

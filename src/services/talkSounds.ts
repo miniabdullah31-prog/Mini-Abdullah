@@ -1,4 +1,5 @@
 import { Image, Platform } from "react-native";
+import { isUiSoundEnabled } from "./soundService";
 
 type SoundPlayerModule = {
   playUrl: (url: string) => void;
@@ -51,7 +52,7 @@ export function stopTalkSound(): void {
 
 /** Short cartoon pings — never throw, never interrupt TTS for long. */
 export function playTalkSound(name: TalkSoundName): void {
-  if (!SoundPlayer) {
+  if (!SoundPlayer || !isUiSoundEnabled()) {
     return;
   }
   try {

@@ -12,7 +12,9 @@ import {
 } from "react-native";
 
 import Ionicons from "@react-native-vector-icons/ionicons";
+import LinearGradient from "react-native-linear-gradient";
 import BackButton from "./BackButton";
+import GradCardDecor from "./GradCardDecor";
 import SmoothPressable from "./SmoothPressable";
 import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
@@ -20,11 +22,25 @@ type Props = {
   goBack: () => void;
 };
 
+type SalahStep = {
+  id: number;
+  title: string;
+  arabic: string;
+  detail: string;
+  detailUrdu: string;
+  tafseerEng: string;
+  tafseerUrdu: string;
+  methodEng: string;
+  methodUrdu: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  colors: [string, string];
+};
+
 const SalahScreen: React.FC<Props> = ({ goBack }) => {
   const [search, setSearch] = useState("");
-  const [selectedStep, setSelectedStep] = useState<any>(null);
+  const [selectedStep, setSelectedStep] = useState<SalahStep | null>(null);
 
-  const salahSteps = [
+  const salahSteps: SalahStep[] = [
     {
       id: 1,
       title: "Takbeer",
@@ -35,7 +51,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "تکبیر تحریمہ کا مطلب ہے کہ دنیاوی تمام کام اب حرام ہو گئے اور آپ اللہ کی بارگاہ میں کھڑے ہیں۔",
       methodEng: "Hands facing the Qiblah, fingers naturally aligned, and look towards the place of Sajdah.",
       methodUrdu: "ہتھیلیاں قبلہ رخ ہوں، انگلیاں سیدھی ہوں اور نظر سجدے کی جگہ پر ہونی چاہیے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
+      icon: "hand-left-outline",
+      colors: ["#7B2FF7", "#5B33C4"],
     },
     {
       id: 2,
@@ -47,7 +64,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "قیام بندے کی عاجزی اور اللہ رب العزت کے سامنے انتہائی ادب کے ساتھ کھڑے ہونے کی علامت ہے۔",
       methodEng: "Place right hand over left hand below the navel or on the chest, keeping feet apart comfortably.",
       methodUrdu: "ناswitchف کے نیچے یا سینے پر دائیں ہاتھ کو بائیں ہاتھ کے اوپر باندھیں اور قدموں میں مناسب فاصلہ رکھیں۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
+      icon: "book-outline",
+      colors: ["#C45C2A", "#E08A4F"],
     },
     {
       id: 3,
@@ -59,7 +77,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "رکوع اللہ تعالیٰ کی عظمت اور بڑائی کا اقرار ہے کہ وہی سب سے عظیم کائنات کا مالک ہے۔",
       methodEng: "Keep your back perfectly straight, hold your knees with fingers spread, and look at your feet.",
       methodUrdu: "اپنی پیٹھ بالکل سیدھی رکھیں، انگلیوں کو پھیلا کر گھٹنوں کو پکڑیں اور نظر پاؤں پر رکھیں۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
+      icon: "arrow-down-outline",
+      colors: ["#D94F8B", "#F07AB0"],
     },
     {
       id: 4,
@@ -71,7 +90,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "اللہ کا شکر ادا کرنے کی حالت کہ اس نے ہمیں اپنی تعریف بیان کرنے کی توفیق عطا فرمائی۔",
       methodEng: "Let your hands drop to your sides naturally and say 'Rabbana lakal hamd'.",
       methodUrdu: "ہاتھوں کو بالکل سیدھا چھوڑ دیں اور 'ربنا لک الحمد' کہیں۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
+      icon: "arrow-up-outline",
+      colors: ["#1F8A70", "#3CB89A"],
     },
     {
       id: 5,
@@ -83,7 +103,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "سجدہ بندگی کی معراج ہے، اس حالت میں انسان اپنے خالق کے سب سے زیادہ قریب ہوتا ہے۔",
       methodEng: "Seven parts must touch the ground: forehead, nose, two palms, two knees, and toes.",
       methodUrdu: "سات اعضاء زمین پر لگیں: پیشانی، ناک، دونوں ہتھیلیاں، دونوں گھٹنے اور دونوں پاؤں کی انگلیاں۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
+      icon: "leaf-outline",
+      colors: ["#0F9B8E", "#34D1BF"],
     },
     {
       id: 6,
@@ -95,7 +116,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "دو سجدوں کے درمیان بیٹھنا مغفرت اور رحمت طلب کرنے کا ایک خاص اور پرسکون لمحہ ہے۔",
       methodEng: "Sit on your left foot with the right foot upright, resting your hands on your thighs.",
       methodUrdu: "بایاں پاؤں بچھا کر اس پر بیٹھیں اور دایاں پاؤں کھڑا رکھیں، ہاتھ رانوں پر رکھیں۔",
-      bg: require("../homeAssets/indigoCard.jpg"),
+      icon: "pause-outline",
+      colors: ["#2E6BFF", "#5AA0FF"],
     },
     {
       id: 7,
@@ -107,7 +129,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "دوسرا سجدہ عاجزی کی تجدید ہے کہ انسان بار بار اپنے رب کے سامنے سرنگوں ہوتا ہے۔",
       methodEng: "Ensure the same physical posture as the first Sajdah, maintaining complete focus.",
       methodUrdu: "جسمانی کیفیت پہلے سجدے جیسی ہی رکھیں اور پوری توجہ اللہ کی طرف مبذول رکھیں۔",
-      bg: require("../homeAssets/yellowCard.jpg"),
+      icon: "flower-outline",
+      colors: ["#C9A227", "#E8C547"],
     },
     {
       id: 8,
@@ -119,7 +142,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "التحیات میں وہ بابرکت کلمات ہیں جو معراج کے موقع پر اللہ اور رسول اللہ ﷺ کے درمیان ہوئے۔",
       methodEng: "Raise your right index finger when testifying the oneness of Allah (Ashhadu alla...)",
       methodUrdu: "جب کلمہ شہادت (اشھد ان لا) پر پہنچیں تو دائیں ہاتھ کی شہادت کی انگلی اٹھا کر اشارہ کریں۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
+      icon: "hand-right-outline",
+      colors: ["#D94F8B", "#F07AB0"],
     },
     {
       id: 9,
@@ -131,7 +155,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "نماز کے آخر میں درود شریف پڑھنا دعاؤں کی قبولیت اور حضور ﷺ سے محبت کا لازمی جزو ہے۔",
       methodEng: "Remain seated in the same position, reciting slowly with devotion.",
       methodUrdu: "اسی بیٹھنے کی حالت میں خشوع و خضوع کے ساتھ درود شریف اور اس کے بعد کوئی مسنون دعا پڑھیں۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
+      icon: "heart-outline",
+      colors: ["#7B2FF7", "#5B33C4"],
     },
     {
       id: 10,
@@ -143,7 +168,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
       tafseerUrdu: "سلام کے ذریعے ہم اپنے دائیں بائیں موجود فرشتوں اور تمام مسلمانوں پر سلامتی بھیجتے ہیں۔",
       methodEng: "Turn right until your cheek is visible from behind, then turn left.",
       methodUrdu: "پہلے دائیں طرف اتنا منہ پھیریں کہ پیچھے والے کو گال نظر آئے، پھر بائیں طرف سلام پھیریں۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
+      icon: "sparkles-outline",
+      colors: ["#C45C2A", "#E08A4F"],
     },
   ];
 
@@ -243,22 +269,27 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
           {filteredSteps.map((item) => (
             <SmoothPressable
               key={item.id}
-              radius={22}
+              radius={20}
               style={styles.cardWrapper}
               onPress={() => setSelectedStep(item)}
             >
-              <ImageBackground
-                source={item.bg}
+              <LinearGradient
+                colors={item.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.card}
-                imageStyle={{
-                  borderRadius: 22,
-                }}
               >
-                <Text style={styles.cardTitle}>
-                  {item.id}. {item.title}
-                </Text>
-                <Ionicons name="chevron-forward" size={26} color="#fff" />
-              </ImageBackground>
+                <GradCardDecor />
+                <View style={styles.iconCircle}>
+                  <Ionicons name={item.icon} size={22} color="#fff" />
+                </View>
+                <View style={styles.cardTextCol}>
+                  <Text style={styles.cardTitle}>
+                    {item.id}. {item.title}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
+              </LinearGradient>
             </SmoothPressable>
           ))}
         </View>
@@ -275,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F6F7FB",
   },
   header: {
-    paddingTop: 35,
+    paddingTop: 70,
     paddingBottom: 40,
     alignItems: "center",
   },
@@ -315,25 +346,43 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   cardsContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: 40,
   },
   cardWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   card: {
-    borderRadius: 22,
-    padding: 24,
+    minHeight: 88,
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
     overflow: "hidden",
-    minHeight: 90,
+    position: "relative",
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  cardTextCol: {
+    flex: 1,
+    zIndex: 1,
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "800",
   },
   detailCard: {
     margin: 20,

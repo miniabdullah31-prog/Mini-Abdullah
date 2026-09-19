@@ -8,10 +8,12 @@
  *    audio: require("../assets/duas/morning.mp3"),
  *
  * HOW TO ADD AI VIDEO LESSONS:
- * 1. Put .mp4 in: src/assets/duas/videos/
- *    e.g. morning.mp4 , sleep.mp4
- * 2. Set on the dua item:
- *    video: require("../assets/duas/videos/morning.mp4"),
+ * Prefer backend media (not the RN bundle):
+ * 1. Put .mp4 in: backend/media/public/duas/
+ * 2. Seed it in backend/services/mediaService.js (category: "duas")
+ * 3. Set on the dua item:
+ *    video: "/media/duas/sleeping-dua.mp4",
+ * Bundled require() still works for older local files.
  *
  * Leave audio/video null until you attach your files.
  * (Quran Sudais + other screens keep TTS — only Duas use your files.)
@@ -29,8 +31,8 @@ export type DuaItem = {
   caption: string;
   /** Your recorded dua audio — require("../assets/duas/file.mp3") or null */
   audio: number | null;
-  /** AI lesson video — require("../assets/duas/videos/file.mp4") or null */
-  video: number | null;
+  /** Bundled require() number, or backend `/media/...` path */
+  video: number | string | null;
   icon: "sunny" | "moon" | "restaurant" | "airplane" | "people" | "school" | "walk" | "home" | "heart" | "shield-checkmark";
   colors: [string, string];
 };
@@ -50,7 +52,7 @@ export const DUAS: DuaItem[] = [
       "یہ دعا دن کا آغاز اللہ کی حاکمیت کے اقرار کے ساتھ کرتی ہے تاکہ سارا دن حفاظت میں گزرے۔",
     caption: "Morning remembrance · start your day with Allah",
     audio: null, // require("../assets/duas/morning.mp3"),
-    video: require("../assets/duas/videos/morning.mp4"),
+    video: "/media/duas/morning-dua.mp4",
     icon: "sunny",
     colors: ["#1F8A70", "#3CB89A"],
   },
@@ -68,7 +70,7 @@ export const DUAS: DuaItem[] = [
       "نیند کو چھوٹی موت کہا گیا ہے؛ اس دعا سے سوتے وقت روح اللہ کے سپرد ہوتی ہے۔",
     caption: "Before sleep · entrust yourself to Allah",
     audio: null, // require("../assets/duas/sleep.mp3"),
-    video: require("../assets/duas/videos/sleep.mp4"),
+    video: "/media/duas/sleeping-dua.mp4",
     icon: "moon",
     colors: ["#2E6BFF", "#5AA0FF"],
   },
@@ -124,7 +126,7 @@ export const DUAS: DuaItem[] = [
       "قرآن کی یہ دعا والدین پر رحمت اور حسنِ سلوک سکھاتی ہے۔",
     caption: "For parents · mercy and gratitude",
     audio: null, // require("../assets/duas/parents.mp3"),
-    video: null,
+    video: "/media/duas/dua-for-parents.mp4?v=h264",
     icon: "people",
     colors: ["#7B2FF7", "#5B33C4"],
   },

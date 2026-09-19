@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Platform, SafeAreaView } from "react-native";
 
 import SplashScreen from "./src/Components/SplashScreen";
@@ -29,6 +29,7 @@ import {
 } from "./src/services/appPrefsStore";
 import { getRestorableActiveAccount } from "./src/services/accountStore";
 import { hydrateNotificationsIfEnabled } from "./src/services/notificationService";
+import { hydrateUiSoundPref } from "./src/services/soundService";
 import {
   initFcmForAuthenticatedUser,
   teardownFcmListeners,
@@ -40,19 +41,59 @@ import {
 } from "./src/services/notificationNavigation";
 import { tryFeatureBack } from "./src/navigation/featureBackHandler";
 
+const APP_SCREEN_MIN = 10;
+const APP_SCREEN_MAX = 21;
+
+function isLoggedInAppScreen(n: number): boolean {
+  return n >= APP_SCREEN_MIN && n <= APP_SCREEN_MAX;
+}
+
 const App = () => {
   const [screen, setScreen] = useState(1);
   const [onboardStep, setOnboardStep] = useState(1);
   const [resetEmail, setResetEmail] = useState("");
   const [resetOtp, setResetOtp] = useState("");
+  /** Previous logged-in screens (Home/Games/Learn/…). Never includes Splash/auth. */
+  const navHistoryRef = useRef<number[]>([]);
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+
+  const pushNavHistory = useCallback((from: number) => {
+    if (!isLoggedInAppScreen(from)) {
+      return;
+    }
+    const hist = navHistoryRef.current;
+    if (hist[hist.length - 1] === from) {
+      return;
+    }
+    hist.push(from);
+    if (hist.length > 16) {
+      hist.shift();
+    }
+  }, []);
+
+  const clearNavHistory = useCallback(() => {
+    navHistoryRef.current = [];
+  }, []);
 
   useEffect(() => {
     hydrateNotificationsIfEnabled().catch(() => undefined);
+    hydrateUiSoundPref().catch(() => undefined);
   }, []);
 
   useEffect(() => {
     setNotificationNavigator((target) => {
-      setScreen(target.screen);
+      const next = target.screen;
+      if (next === 10) {
+        navHistoryRef.current = [];
+        setScreen(10);
+        return;
+      }
+      const current = screenRef.current;
+      if (current !== next && isLoggedInAppScreen(current)) {
+        pushNavHistory(current);
+      }
+      setScreen(next);
     });
 
     const pending = consumePendingNotificationNav();
@@ -65,7 +106,7 @@ const App = () => {
     return () => {
       unsubNotifee?.();
     };
-  }, []);
+  }, [pushNavHistory]);
 
   useEffect(() => {
     if (screen !== 10) {
@@ -89,16 +130,22 @@ const App = () => {
   }, [screen]);
 
   const goToWelcome = () => {
+    clearNavHistory();
     setScreen(3);
   };
   const goToHome = () => {
+    clearNavHistory();
     setScreen(10);
   };
 
   const openFeature = useCallback((target: number) => {
     markFeatureUsed().catch(() => undefined);
+    const current = screenRef.current;
+    if (current !== target && isLoggedInAppScreen(current)) {
+      pushNavHistory(current);
+    }
     setScreen(target);
-  }, []);
+  }, [pushNavHistory]);
 
   const goToQuran = () => openFeature(11);
   const goToSalah = () => openFeature(12);
@@ -110,7 +157,13 @@ const App = () => {
   const goToQuiz = () => openFeature(18);
   const goToTalkingAbdullah = () => openFeature(20);
   const goToTutor = () => openFeature(21);
-  const goToProfile = () => setScreen(19);
+  const goToProfile = () => {
+    const current = screenRef.current;
+    if (current !== 19 && isLoggedInAppScreen(current)) {
+      pushNavHistory(current);
+    }
+    setScreen(19);
+  };
 
   const finishOnboarding = async () => {
     try {
@@ -140,16 +193,23 @@ const App = () => {
   }, []);
 
   const goBack = useCallback(() => {
-    if (screen >= 11 && screen <= 21) {
-      if (tryFeatureBack()) {
+    if (tryFeatureBack()) {
+      return;
+    }
+
+    if (isLoggedInAppScreen(screen)) {
+      const prev = navHistoryRef.current.pop();
+      if (typeof prev === "number" && isLoggedInAppScreen(prev) && prev !== screen) {
+        setScreen(prev);
         return;
       }
-      setScreen(10);
-    } else if (screen === 10) {
-      setScreen(3);
-    } else {
-      setScreen(screen - 1);
+      if (screen !== 10) {
+        setScreen(10);
+      }
+      return;
     }
+
+    setScreen((current) => Math.max(1, current - 1));
   }, [screen]);
 
   const handleAndroidBackPress = useCallback(() => {
@@ -164,14 +224,6 @@ const App = () => {
         return true;
       }
       setScreen(1);
-      return true;
-    }
-
-    if (screen >= 11 && screen <= 21) {
-      if (tryFeatureBack()) {
-        return true;
-      }
-      setScreen(10);
       return true;
     }
 
@@ -302,7 +354,13 @@ const App = () => {
         />
       )}
       {screen === 20 && <TalkingAbdullahScreen goBack={goBack} />}
-      {screen === 21 && <TutorScreen goBack={goBack} />}
+      {screen === 21 && (
+        <TutorScreen
+          goBack={goBack}
+          goToHome={goToHome}
+          goToProfile={goToProfile}
+        />
+      )}
     </SafeAreaView>
   );
 };

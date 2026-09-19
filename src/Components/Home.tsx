@@ -45,6 +45,17 @@ import {
 } from "../services/dailyContentService";
 import RateAppModal from "./RateAppModal";
 import SmoothPressable from "./SmoothPressable";
+import CoinsBalanceChip from "./CoinsBalanceChip";
+import DailyLearningDetail, {
+  DailyLearningKind,
+} from "./DailyLearningDetail";
+import {
+  claimReward,
+  fetchRewardBalance,
+  getCachedRewardBalance,
+  todayKeyKarachi,
+} from "../services/rewardsService";
+import { playUiSound } from "../services/soundService";
 
 const FALLBACK_QUOTE = {
   arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
@@ -130,6 +141,16 @@ const Home: React.FC<Props> = ({
     useState<DailyLearningContent>(FALLBACK_DAILY);
   const [dailyLoading, setDailyLoading] = useState(true);
   const [dailyError, setDailyError] = useState(false);
+  const [coins, setCoins] = useState<number | null>(
+    () => getCachedRewardBalance()?.coins ?? null,
+  );
+  const [questClaimed, setQuestClaimed] = useState(
+    () => getCachedRewardBalance()?.todayQuestClaimed ?? false,
+  );
+  const [questClaiming, setQuestClaiming] = useState(false);
+  const [dailyDetail, setDailyDetail] = useState<DailyLearningKind | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -175,6 +196,23 @@ const Home: React.FC<Props> = ({
 
     loadDailyQuote();
     loadUserAndRating();
+
+    const loadCoins = async () => {
+      try {
+        const balance = await fetchRewardBalance();
+        if (active) {
+          setCoins(balance.coins);
+          setQuestClaimed(balance.todayQuestClaimed);
+        }
+      } catch {
+        const fallback = getCachedRewardBalance();
+        if (active && fallback) {
+          setCoins(fallback.coins);
+          setQuestClaimed(fallback.todayQuestClaimed);
+        }
+      }
+    };
+    loadCoins();
 
     const loadDailyLearning = async () => {
       try {
@@ -330,6 +368,7 @@ const Home: React.FC<Props> = ({
   ];
 
   const handleCardPress = (itemId: number) => {
+    playUiSound("tap");
     if (itemId === 1) goToQuran();
     else if (itemId === 2) goToSalah();
     else if (itemId === 3) goToDailySunnah();
@@ -351,6 +390,36 @@ const Home: React.FC<Props> = ({
     setRatingVisible(false);
   };
 
+  const collectQuestCoins = async () => {
+    if (questClaimed || questClaiming) {
+      return;
+    }
+    const dateKey = todayKeyKarachi();
+    setQuestClaiming(true);
+    try {
+      const result = await claimReward("quest", dateKey);
+      setCoins(result.coins);
+      setQuestClaimed(true);
+    } catch {
+      // keep existing daily error handling style — silent, UI stays usable
+    } finally {
+      setQuestClaiming(false);
+    }
+  };
+
+  if (dailyDetail) {
+    return (
+      <DailyLearningDetail
+        kind={dailyDetail}
+        content={dailyLearning}
+        onBack={() => setDailyDetail(null)}
+        questClaimed={questClaimed}
+        questClaiming={questClaiming}
+        onCollectQuest={collectQuestCoins}
+      />
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
@@ -363,6 +432,7 @@ const Home: React.FC<Props> = ({
             >
               <Ionicons name="time-outline" size={28} color="#4B2AA8" />
             </TouchableOpacity>
+            <CoinsBalanceChip coins={coins} />
           </View>
 
           <ImageBackground
@@ -373,6 +443,11 @@ const Home: React.FC<Props> = ({
             <View style={styles.welcomeContainer}>
               <Text style={styles.welcomeText}>
                 Assalamu Alaikum, {displayName}
+              </Text>
+              <Text style={styles.brandRow}>
+                <Text style={styles.brandEn}>Mini Abdullah</Text>
+                <Text style={styles.brandDot}>  ·  </Text>
+                <Text style={styles.brandUr}>عبداللہ</Text>
               </Text>
               <Text style={styles.subText}>
                 Let's learn, grow and become better Muslims
@@ -414,49 +489,88 @@ const Home: React.FC<Props> = ({
               </Text>
             )}
 
-            <View style={styles.dailyCard}>
-              <View style={styles.dailyCardTop}>
-                <Text style={styles.dailyEmoji}>🌟</Text>
-                <Text style={styles.dailyCardLabel}>Word of the Day</Text>
-              </View>
-              <Text style={styles.dailyWord}>{dailyLearning.word}</Text>
-              <Text style={styles.dailyMeaning}>{dailyLearning.wordMeaning}</Text>
-              {!!dailyLearning.wordExample && (
-                <Text style={styles.dailyExample}>{dailyLearning.wordExample}</Text>
-              )}
-            </View>
-
             <SmoothPressable
               radius={22}
-              onPress={goToDuas}
+              onPress={() => {
+                playUiSound("cardOpen");
+                setDailyDetail("word");
+              }}
               style={[styles.dailyCard, styles.pressClip]}
             >
               <View style={styles.dailyCardTop}>
-                <Text style={styles.dailyEmoji}>🤲</Text>
-                <Text style={styles.dailyCardLabel}>Dua of the Day</Text>
+                <View style={[styles.dailyIconWrap, styles.dailyIconWord]}>
+                  <Ionicons name="sparkles" size={16} color="#6C4DF7" />
+                </View>
+                <Text style={styles.dailyCardLabel}>Word of the Day</Text>
+                <Text style={styles.viewHint}>View</Text>
                 <Ionicons name="chevron-forward" size={18} color="#6C4DF7" />
               </View>
-              <Text style={styles.dailyDuaArabic}>{dailyLearning.dua}</Text>
-              <Text style={styles.dailyMeaning}>{dailyLearning.duaMeaning}</Text>
+              <Text style={styles.dailyWord}>{dailyLearning.word}</Text>
+              <Text style={styles.dailyMeaning} numberOfLines={2}>
+                {dailyLearning.wordMeaning}
+              </Text>
             </SmoothPressable>
 
             <SmoothPressable
               radius={22}
-              onPress={goToQuiz}
-              style={[styles.dailyCard, styles.dailyQuestCard, styles.pressClip]}
+              onPress={() => {
+                playUiSound("cardOpen");
+                setDailyDetail("dua");
+              }}
+              style={[styles.dailyCard, styles.pressClip]}
             >
               <View style={styles.dailyCardTop}>
-                <Text style={styles.dailyEmoji}>🎮</Text>
-                <Text style={styles.dailyCardLabel}>Daily Quest</Text>
+                <View style={[styles.dailyIconWrap, styles.dailyIconDua]}>
+                  <Ionicons name="heart" size={16} color="#0F9B8E" />
+                </View>
+                <Text style={styles.dailyCardLabel}>Dua of the Day</Text>
+                <Text style={styles.viewHint}>View</Text>
+                <Ionicons name="chevron-forward" size={18} color="#6C4DF7" />
+              </View>
+              <Text style={styles.dailyDuaArabic} numberOfLines={2}>
+                {dailyLearning.dua}
+              </Text>
+              <Text style={styles.dailyMeaning} numberOfLines={2}>
+                {dailyLearning.duaMeaning}
+              </Text>
+            </SmoothPressable>
+
+            <SmoothPressable
+              radius={22}
+              onPress={() => {
+                playUiSound("cardOpen");
+                setDailyDetail("quest");
+              }}
+              style={[
+                styles.dailyCard,
+                styles.dailyQuestCard,
+                styles.pressClip,
+              ]}
+            >
+              <View style={styles.dailyCardTop}>
+                <View style={[styles.dailyIconWrap, styles.dailyIconQuest]}>
+                  <Ionicons name="star" size={16} color="#DB2777" />
+                </View>
+                <Text style={[styles.dailyCardLabel, styles.dailyQuestLabel]}>
+                  Kindness Quest
+                </Text>
+                <Text style={styles.viewHint}>View</Text>
                 <Ionicons name="chevron-forward" size={18} color="#DB2777" />
               </View>
-              <Text style={styles.dailyQuestTitle}>{dailyLearning.questTitle}</Text>
-              <Text style={styles.dailyMeaning}>{dailyLearning.questDescription}</Text>
+              <Text style={styles.dailyQuestTitle} numberOfLines={1}>
+                {dailyLearning.questTitle}
+              </Text>
+              <Text style={styles.dailyMeaning} numberOfLines={2}>
+                {dailyLearning.questDescription}
+              </Text>
               <View style={styles.rewardRow}>
                 <Text style={styles.rewardBadge}>+{dailyLearning.rewardXP} XP</Text>
                 <Text style={styles.rewardBadgeCoins}>
                   +{dailyLearning.rewardCoins} coins
                 </Text>
+                {questClaimed ? (
+                  <Text style={styles.collectedHint}>Collected ✓</Text>
+                ) : null}
               </View>
             </SmoothPressable>
           </View>
@@ -495,7 +609,10 @@ const Home: React.FC<Props> = ({
 
         <Pressable
           android_ripple={{ color: "transparent" }}
-          onPress={goToTalkingAbdullah}
+          onPress={() => {
+            playUiSound("tap");
+            goToTalkingAbdullah();
+          }}
           accessibilityRole="button"
           accessibilityLabel="Talk to Abdullah"
           style={styles.talkFab}
@@ -647,7 +764,10 @@ const Home: React.FC<Props> = ({
 
             <TouchableOpacity
               style={styles.navItem}
-              onPress={goToTutor}
+              onPress={() => {
+                playUiSound("tap");
+                goToTutor();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Tutor"
             >
@@ -659,7 +779,10 @@ const Home: React.FC<Props> = ({
 
             <TouchableOpacity
               style={styles.navItem}
-              onPress={goToProfile}
+              onPress={() => {
+                playUiSound("tap");
+                goToProfile();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Profile"
             >
@@ -689,7 +812,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F6F7FB" },
   topSection: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 44,
@@ -724,6 +847,31 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 32,
     textAlign: "center",
+  },
+  brandRow: {
+    marginTop: 6,
+    textAlign: "center",
+  },
+  brandEn: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#6C4DF7",
+  },
+  brandDot: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#C4B5FD",
+  },
+  brandUr: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#4B2AA8",
+    writingDirection: "rtl",
+    fontFamily: Platform.select({
+      ios: "Geeza Pro",
+      android: "NotoNastaliqUrdu",
+      default: undefined,
+    }),
   },
   subText: {
     fontSize: 14,
@@ -825,12 +973,30 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  dailyIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dailyIconWord: { backgroundColor: "#EDE9FE" },
+  dailyIconDua: { backgroundColor: "#CCFBF1" },
+  dailyIconQuest: { backgroundColor: "#FCE7F3" },
   dailyEmoji: { fontSize: 20 },
   dailyCardLabel: {
     flex: 1,
     fontSize: 14,
     fontWeight: "800",
     color: "#6C4DF7",
+  },
+  dailyQuestLabel: {
+    color: "#DB2777",
+  },
+  viewHint: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#94A3B8",
   },
   dailyWord: {
     fontSize: 26,
@@ -886,6 +1052,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     overflow: "hidden",
+  },
+  collectedHint: {
+    color: "#0F9B8E",
+    fontWeight: "800",
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   grid: {
     flexDirection: "row",

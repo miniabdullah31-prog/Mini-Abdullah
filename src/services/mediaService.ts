@@ -26,10 +26,16 @@ export function resolveMediaUrl(pathOrUrl: string | null | undefined): string | 
 export async function fetchMediaByCategory(
   category: string,
 ): Promise<RemoteMedia[]> {
+  const started = Date.now();
   const res = await fetch(
     `${API_BASE_URL}/api/media?category=${encodeURIComponent(category)}`,
   );
   const data = await res.json();
+  if (__DEV__) {
+    console.log(
+      `[stories-perf] GET /api/media?category=${category} ${Date.now() - started}ms status=${res.status}`,
+    );
+  }
   if (!res.ok || !data?.success || !Array.isArray(data.data)) {
     throw new Error(data?.message || "Failed to load media");
   }
@@ -45,8 +51,9 @@ export function indexMediaByLocalId(
 ): Record<number, RemoteMedia> {
   const map: Record<number, RemoteMedia> = {};
   for (const item of items) {
-    if (typeof item.localId === "number") {
-      map[item.localId] = item;
+    const localId = Number(item.localId);
+    if (Number.isFinite(localId) && localId > 0) {
+      map[localId] = item;
     }
   }
   return map;

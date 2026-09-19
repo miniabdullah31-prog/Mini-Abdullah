@@ -90,7 +90,8 @@ function resolveDevHost(): string {
   return metroBundleHost() || DEV_MACHINE_IP;
 }
 
-export const API_BASE_URL = `http://${resolveDevHost()}:${API_PORT}`;
+// export const API_BASE_URL = `http://${resolveDevHost()}:${API_PORT}`;
+export const API_BASE_URL = "http://192.168.1.49:5000";
 
 /** Real phone + PC: same Wi‑Fi, backend npm run backend, firewall allow port 5000 */
 export function getApiSetupHint(): string {

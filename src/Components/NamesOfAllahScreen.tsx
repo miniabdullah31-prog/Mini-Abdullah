@@ -12,7 +12,9 @@ import {
 } from "react-native";
 
 import Ionicons from "@react-native-vector-icons/ionicons";
+import LinearGradient from "react-native-linear-gradient";
 import BackButton from "./BackButton";
+import GradCardDecor from "./GradCardDecor";
 import SmoothPressable from "./SmoothPressable";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
@@ -20,6 +22,17 @@ import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 type Props = {
   goBack: () => void;
 };
+
+/** Rotating gradients — same language as Duas / Quran / Daily Sunnah cards */
+const NAME_CARD_COLORS: [string, string][] = [
+  ["#2E6BFF", "#5AA0FF"],
+  ["#7B2FF7", "#5B33C4"],
+  ["#C45C2A", "#E08A4F"],
+  ["#1F8A70", "#3CB89A"],
+  ["#D94F8B", "#F07AB0"],
+  ["#0F9B8E", "#34D1BF"],
+  ["#C9A227", "#E8C547"],
+];
 
 const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
   const [search, setSearch] = useState("");
@@ -45,7 +58,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Merciful",
       tafseerEng: "Allah showers His mercy upon all creation.",
       tafseerUrdu: "اللہ اپنی رحمت تمام مخلوق پر نازل فرماتا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 2,
@@ -54,7 +66,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Especially Merciful",
       tafseerEng: "Allah gives special mercy to believers.",
       tafseerUrdu: "اللہ مومنوں پر خاص رحمت فرماتا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 3,
@@ -63,7 +74,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Absolute Ruler",
       tafseerEng: "Allah is the true King and Sovereign of everything.",
       tafseerUrdu: "اللہ پوری کائنات کا حقیقی بادشاہ ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 4,
@@ -72,7 +82,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Pure / Holy",
       tafseerEng: "Allah is absolutely free from all imperfections and faults.",
       tafseerUrdu: "اللہ ہر قسم کے عیب اور نقص سے پاک ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 5,
@@ -81,7 +90,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Source of Peace",
       tafseerEng: "Allah is the One who grants peace, safety, and security.",
       tafseerUrdu: "اللہ سلامتی اور امن عطا فرمانے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 6,
@@ -90,7 +98,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Giver of Faith / Safety",
       tafseerEng: "Allah guarantees safety and protects His believers.",
       tafseerUrdu: "اللہ اپنے بندوں کو امن اور ایمان دینے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 7,
@@ -99,7 +106,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Guardian / Overseer",
       tafseerEng: "Allah watches over and protects all of His creation.",
       tafseerUrdu: "اللہ سب کا نگہبان اور حفاظت کرنے والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 8,
@@ -108,7 +114,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Mighty",
       tafseerEng: "Allah is the Defeater who is never defeated.",
       tafseerUrdu: "اللہ سب پر غالب ہے اور بہت عزت والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 9,
@@ -117,7 +122,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Compeller / Restorer",
       tafseerEng: "Allah fixes our broken affairs and enforces His will.",
       tafseerUrdu: "اللہ بگڑے ہوئے کاموں کو سنوارنے والا اور زبردست ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 10,
@@ -126,7 +130,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Supreme / Majestic",
       tafseerEng: "Allah is the One who reveals His greatness in all things.",
       tafseerUrdu: "اللہ سب سے بڑا ہے اور بڑائی اسی کے لیے ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 11,
@@ -135,7 +138,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Creator",
       tafseerEng: "Allah created everything from nothingness.",
       tafseerUrdu: "اللہ پیدا کرنے والا اور وجود میں لانے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 12,
@@ -144,7 +146,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Originator",
       tafseerEng: "Allah shapes and creates without any model.",
       tafseerUrdu: "اللہ ٹھیک ٹھیک بنانے والا اور ایجاد کرنے wala ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 13,
@@ -153,7 +154,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Fashioner",
       tafseerEng: "Allah designs and gives distinct forms to all creation.",
       tafseerUrdu: "اللہ صورتیں بنانے والا اور شکلیں دینے والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 14,
@@ -162,7 +162,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Forgiving",
       tafseerEng: "Allah repeatedly forgives the sins of His servants.",
       tafseerUrdu: "اللہ گناہوں کو بار بار معاف کرنے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 15,
@@ -171,7 +170,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Subduer",
       tafseerEng: "Allah has perfect control over everything, nothing can resist Him.",
       tafseerUrdu: "اللہ سب پر کامل کنٹرول رکھنے والا اور غالب ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 16,
@@ -180,7 +178,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Supreme Bestower",
       tafseerEng: "Allah continuously gives without waiting for anything in return.",
       tafseerUrdu: "اللہ بغیر کسی عوض کے بہت کچھ عطا کرنے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 17,
@@ -189,7 +186,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Provider",
       tafseerEng: "Allah provides sustenance to all alive creatures.",
       tafseerUrdu: "اللہ تمام مخلوقات کو رزق دینے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 18,
@@ -198,7 +194,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Opener / Judge",
       tafseerEng: "Allah opens closed doors of mercy, success, and knowledge.",
       tafseerUrdu: "اللہ بند راستوں کو کھولنے والا اور فیصلہ کرنے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 19,
@@ -207,7 +202,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Knowing",
       tafseerEng: "Allah knows everything, open or hidden, past, present, and future.",
       tafseerUrdu: "اللہ سب کچھ جاننے والا ہے، کچھ بھی اس سے چھپا نہیں۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 20,
@@ -216,7 +210,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Withholder / Restrainer",
       tafseerEng: "Allah straightens or withholds sustenance according to His wisdom.",
       tafseerUrdu: "اللہ اپنی حکمت سے رزق اور روحوں کو قبض کرنے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 21,
@@ -225,7 +218,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Extender / Expander",
       tafseerEng: "Allah expands resources, provisions, and joy for whom He wills.",
       tafseerUrdu: "اللہ اپنی رحمت سے رزق اور نعمتیں کشادہ کرنے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 22,
@@ -234,7 +226,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Abaser / Demoter",
       tafseerEng: "Allah decreases the status of tyrants and the arrogant.",
       tafseerUrdu: "اللہ سرکشوں اور متکبرین کو نیچا دکھانے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 23,
@@ -243,7 +234,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Exalter / Elevator",
       tafseerEng: "Allah elevates the ranks of the righteous and believers.",
       tafseerUrdu: "اللہ ایمان والوں اور نیک لوگوں کے درجے بلند کرنے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 24,
@@ -252,7 +242,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Giver of Honor",
       tafseerEng: "Allah grants true respect and honor to whomever He pleases.",
       tafseerUrdu: "اللہ جسے چاہے عزت اور مرتبہ دینے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 25,
@@ -261,7 +250,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Giver of Dishonor",
       tafseerEng: "Allah disgraces those who disobey Him and do injustice.",
       tafseerUrdu: "اللہ ظالموں اور نافرمانوں کو ذلیل و رسوا کرنے والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 26,
@@ -270,7 +258,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Hearing",
       tafseerEng: "Allah hears every whisper, thought, and prayer instantly.",
       tafseerUrdu: "اللہ ہر پکار، سرگوشی اور دل کی بات سننے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 27,
@@ -279,7 +266,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Seeing",
       tafseerEng: "Allah sees all things clearly, even the darkest secrets.",
       tafseerUrdu: "اللہ کائنات کی ہر چھوٹی بڑی چیز کو دیکھنے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 28,
@@ -288,7 +274,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Supreme Judge",
       tafseerEng: "Allah delivers flawless justice and makes ultimate rulings.",
       tafseerUrdu: "اللہ بہترین فیصلہ کرنے والا اور عادل حاکم ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 29,
@@ -297,7 +282,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Utterly Just",
       tafseerEng: "Allah acts with perfect fairness, free from any bias.",
       tafseerUrdu: "اللہ سراپا انصاف ہے اور اس کا ہر کام عدل پر مبنی ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 30,
@@ -306,7 +290,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Subtle / Kind",
       tafseerEng: "Allah knows fine details and treats His creation with extreme gentleness.",
       tafseerUrdu: "اللہ باریک بین اور اپنے بندوں پر بے حد مہربان ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 31,
@@ -315,7 +298,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Aware",
       tafseerEng: "Allah possesses inner, hidden knowledge of all things.",
       tafseerUrdu: "اللہ ہر چیز کی اندرونی حقیقت سے باخبر ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 32,
@@ -324,7 +306,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Forbearing / Clement",
       tafseerEng: "Allah does not rush to punish and remains patient with sinners.",
       tafseerUrdu: "اللہ بہت بردبار ہے اور عذاب دینے میں جلدی نہیں کرتا۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 33,
@@ -333,7 +314,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Magnificent / Great",
       tafseerEng: "Allah's greatness is beyond human imagination and comprehension.",
       tafseerUrdu: "اللہ بہت عظمت اور بڑائی والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 34,
@@ -342,7 +322,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Forgiving",
       tafseerEng: "Allah completely blots out sins and covers them entirely.",
       tafseerUrdu: "اللہ بہت زیادہ گناہ بخشنے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 35,
@@ -351,7 +330,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Appreciative",
       tafseerEng: "Allah rewards highly even for the small good deeds we do.",
       tafseerUrdu: "اللہ قدردان ہے اور تھوڑی نیکی کا بہت بڑا اجر دیتا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 36,
@@ -360,7 +338,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most High",
       tafseerEng: "Allah is exalted high above all of His creation.",
       tafseerUrdu: "اللہ سب سے بلند اور اعلیٰ مرتبے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 37,
@@ -369,7 +346,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Grand",
       tafseerEng: "Allah is uniquely great and unmatched in His existence.",
       tafseerUrdu: "اللہ سب سے بڑا ہے اور اس کی بڑائی کی کوئی حد نہیں۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 38,
@@ -378,7 +354,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Preserver",
       tafseerEng: "Allah protects and preserves the universe and our deeds.",
       tafseerUrdu: "اللہ کائنات اور اپنے بندوں کی حفاظت کرنے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 39,
@@ -387,7 +362,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Sustainer",
       tafseerEng: "Allah supplies physical and spiritual nourishment to all.",
       tafseerUrdu: "اللہ سب کو طاقت اور روزی پہنچانے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 40,
@@ -396,7 +370,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Sufficient Accountant",
       tafseerEng: "Allah is sufficient for us and keeps an accurate account of everything.",
       tafseerUrdu: "اللہ سب کے لیے کافی ہے اور حساب لینے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 41,
@@ -405,7 +378,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Majestic / Glorious",
       tafseerEng: "Allah is absolute owner of sublimity, grandeur, and glory.",
       tafseerUrdu: "اللہ بہت بزرگی اور جلال والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 42,
@@ -414,7 +386,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Generous",
       tafseerEng: "Allah gives bountifully without being asked and forgives gracefully.",
       tafseerUrdu: "اللہ بے حد کرم فرمانے والا اور سخی ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 43,
@@ -423,7 +394,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Watchful Watcher",
       tafseerEng: "Allah observes all actions, thoughts, and movements at all times.",
       tafseerUrdu: "اللہ ہر وقت ہر چیز پر نظر رکھنے والا اور نگہبان ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 44,
@@ -432,7 +402,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Responsive Hearer",
       tafseerEng: "Allah answers prayers and fulfills requests of those who call Him.",
       tafseerUrdu: "اللہ دعاؤں کو سننے والا اور قبول کرنے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 45,
@@ -441,7 +410,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Encompassing",
       tafseerEng: "Allah's knowledge, mercy, and presence have no limit.",
       tafseerUrdu: "اللہ کی وسعت، علم اور رحمت بے پناہ ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 46,
@@ -450,7 +418,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Wise",
       tafseerEng: "Allah's choices and actions are filled with absolute flawless wisdom.",
       tafseerUrdu: "اللہ کمال حکمت والا ہے، اس کا کوئی کام حکمت سے خالی نہیں۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 47,
@@ -459,7 +426,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Loving",
       tafseerEng: "Allah loves His pure servants deeply and fills hearts with affection.",
       tafseerUrdu: "اللہ اپنے بندوں سے بہت محبت کرنے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 48,
@@ -468,7 +434,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Glorious",
       tafseerEng: "Allah is full of honor, nobility, and infinite generosity.",
       tafseerUrdu: "اللہ بہت زیادہ بزرگی اور تعریف والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 49,
@@ -477,7 +442,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Resurrector",
       tafseerEng: "Allah will bring the dead back to life on the Day of Judgment.",
       tafseerUrdu: "اللہ مردوں کو دوبارہ زندہ کر کے اٹھانے والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 50,
@@ -486,7 +450,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Witnessing",
       tafseerEng: "Allah is present everywhere and witnesses every single detail.",
       tafseerUrdu: "اللہ ہر جگہ موجود اور سب کچھ دیکھنے والا گواہ ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 51,
@@ -495,7 +458,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Absolute Truth",
       tafseerEng: "Allah is the ultimate Reality, unchanged and eternal.",
       tafseerUrdu: "اللہ ہی سچا اور برحق معبود ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 52,
@@ -504,7 +466,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Ultimate Trustee",
       tafseerEng: "Allah manages all affairs perfectly for those who rely on Him.",
       tafseerUrdu: "اللہ بہترین کارساز ہے جس پر بھروسہ کیا جا سکتا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 53,
@@ -513,7 +474,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Strong",
       tafseerEng: "Allah has boundless strength that never fades or tires.",
       tafseerUrdu: "اللہ بے پناہ طاقت اور قوت کا مالک ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 54,
@@ -522,7 +482,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Firm / Steadfast",
       tafseerEng: "Allah's power is stable and unshakable under all circumstances.",
       tafseerUrdu: "اللہ نہایت مضبوط قوت والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 55,
@@ -531,7 +490,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Protecting Friend",
       tafseerEng: "Allah is the supportive guardian and ally of righteous believers.",
       tafseerUrdu: "اللہ مومنوں کا سچا دوست اور مددگار ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 56,
@@ -540,7 +498,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Praiseworthy",
       tafseerEng: "Allah alone deserves all praise for His infinite blessings.",
       tafseerUrdu: "اللہ ہی ہر قسم کی تعریف کے لائق ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 57,
@@ -549,7 +506,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Counting Accountant",
       tafseerEng: "Allah calculates and numbers every atom and action accurately.",
       tafseerUrdu: "اللہ ہر چیز کا شمار رکھنے والا اور حساب جاننے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 58,
@@ -558,7 +514,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Initiator",
       tafseerEng: "Allah started the entire universe from nothing.",
       tafseerUrdu: "اللہ کائنات کو پہلی بار پیدا کرنے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 59,
@@ -567,7 +522,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Restorer",
       tafseerEng: "Allah will recreate all things after death and termination.",
       tafseerUrdu: "اللہ فنا ہونے کے بعد دوبارہ پیدا کرنے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 60,
@@ -576,7 +530,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Giver of Life",
       tafseerEng: "Allah grants life and breathes souls into non-living matters.",
       tafseerUrdu: "اللہ ہی زندگی عطا کرنے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 61,
@@ -585,7 +538,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Bringer of Death",
       tafseerEng: "Allah decrees when and how a living creature will die.",
       tafseerUrdu: "اللہ ہی موت دینے والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 62,
@@ -594,7 +546,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Ever-Living",
       tafseerEng: "Allah is eternal, alive forever without beginning or end.",
       tafseerUrdu: "اللہ ہمیشہ زندہ رہنے والا ہے جسے کبھی موت نہیں۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 63,
@@ -603,7 +554,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Self-Sustaining",
       tafseerEng: "Allah sustains Himself and relies on absolutely nobody.",
       tafseerUrdu: "اللہ خود قائم رہنے والا اور پوری کائنات کو سنبھالنے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 64,
@@ -612,7 +562,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Perceiver / Finder",
       tafseerEng: "Allah finds and possesses whatever He desires effortlessly.",
       tafseerUrdu: "اللہ جو چاہے پا لینے والا ہے، کوئی اس سے چھپ نہیں سکتا۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 65,
@@ -621,7 +570,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Illustrious",
       tafseerEng: "Allah is highly respected, noble, and infinitely magnificent.",
       tafseerUrdu: "اللہ بڑی شان اور شرف والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 66,
@@ -630,7 +578,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The One",
       tafseerEng: "Allah is unique in His identity and actions, with no equals.",
       tafseerUrdu: "اللہ اپنی ذات اور صفات میں یکتا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 67,
@@ -639,7 +586,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Only One / Indivisible",
       tafseerEng: "Allah is the absolute indivisible One, completely unique.",
       tafseerUrdu: "اللہ اکیلا ہے، اس کا کوئی شریک یا حصہ دار نہیں۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 68,
@@ -648,7 +594,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Eternal / Self-Sufficient",
       tafseerEng: "Everyone depends on Allah, but Allah depends on no one.",
       tafseerUrdu: "اللہ بے نیاز ہے، سب اس کے محتاج ہیں وہ کسی کا محتاج نہیں۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 69,
@@ -657,7 +602,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Capable",
       tafseerEng: "Allah has execution power to execute whatever He wills.",
       tafseerUrdu: "اللہ ہر چیز پر پوری قدرت رکھنے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 70,
@@ -666,7 +610,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The All-Powerful Determiner",
       tafseerEng: "Allah controls creation with absolute supreme power.",
       tafseerUrdu: "اللہ عظیم طاقت والا اور اقتدار کا مالک ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 71,
@@ -675,7 +618,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Expediter",
       tafseerEng: "Allah brings forward whatever He wills according to His wisdom.",
       tafseerUrdu: "اللہ جسے چاہے آگے بڑھانے والا اور تقدم دینے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 72,
@@ -684,7 +626,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Delayer",
       tafseerEng: "Allah pushes back or delays things according to His flawless plan.",
       tafseerUrdu: "اللہ اپنی حکمت سے جسے چاہے پیچھے کرنے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 73,
@@ -693,7 +634,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The First",
       tafseerEng: "Allah existed before anything else was created, without a beginning.",
       tafseerUrdu: "اللہ سب سے پہلے موجود تھا، اس کی کوئی شروعات نہیں۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 74,
@@ -702,7 +642,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Last",
       tafseerEng: "Allah will remain alive forever after all creation vanishes.",
       tafseerUrdu: "اللہ سب کے بعد بھی باقی رہنے والا ہے، اس کی کوئی انتہا نہیں۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 75,
@@ -711,7 +650,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Manifest / Obvious",
       tafseerEng: "Allah's existence is clearly visible through His endless signs.",
       tafseerUrdu: "اللہ اپنی نشانیوں سے بالکل ظاہر اور عیاں ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 76,
@@ -720,7 +658,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Hidden / Invisible",
       tafseerEng: "Allah cannot be seen physically by human eyes in this world.",
       tafseerUrdu: "اللہ اپنی ذات میں پوشیدہ ہے، جسے آنکھیں دیکھ نہیں سکتیں۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 77,
@@ -729,7 +666,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Sole Governor",
       tafseerEng: "Allah rules over the cosmos and manages all worldly affairs.",
       tafseerUrdu: "اللہ کائنات کا اصل مالک اور واحد انتظام چلانے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 78,
@@ -738,7 +674,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Supreme Exalted",
       tafseerEng: "Allah is sublime, far above any human attributes or limits.",
       tafseerUrdu: "اللہ سب سے بلند اور اعلیٰ شان والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 79,
@@ -747,7 +682,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Source of All Goodness",
       tafseerEng: "Allah is extremely kind, doing endless favors for His servants.",
       tafseerUrdu: "اللہ سراپا نیکی، احسان اور بھلائی کرنے والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 80,
@@ -756,7 +690,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Ever-Acceptor of Repentance",
       tafseerEng: "Allah constantly accepts sincere repentance from sinners.",
       tafseerUrdu: "اللہ توبہ قبول کرنے والا اور معاف کرنے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 81,
@@ -765,7 +698,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Avenger",
       tafseerEng: "Allah punishes wrongdoers justly when they cross boundaries.",
       tafseerUrdu: "اللہ ظالموں اور گناہ گاروں سے بدلہ لینے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 82,
@@ -774,7 +706,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Supreme Pardoner",
       tafseerEng: "Allah completely erases sins as if they never happened.",
       tafseerUrdu: "اللہ گناہوں کو بالکل مٹا دینے والا اور معاف کرنے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 83,
@@ -783,7 +714,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Kind / Compassionate",
       tafseerEng: "Allah possesses extreme pity and beautiful mercy towards creation.",
       tafseerUrdu: "اللہ اپنے بندوں پر نہایت مہربان اور شفیق ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 84,
@@ -792,7 +722,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "Master of Sovereign Kingdom",
       tafseerEng: "Allah is the permanent absolute owner of entire dominion.",
       tafseerUrdu: "اللہ پوری کائنات کی سلطنت کا تنہا مالک ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 85,
@@ -801,7 +730,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "Lord of Majesty and Generosity",
       tafseerEng: "Allah is the possessor of supreme glory, honor, and generosity.",
       tafseerUrdu: "اللہ بڑی عظمت، جلال اور انعام و اکرام والا ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 86,
@@ -810,7 +738,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Equitable / Just",
       tafseerEng: "Allah establishes absolute justice and fairness in judgments.",
       tafseerUrdu: "اللہ ہر ایک کے ساتھ پورا انصاف کرنے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 87,
@@ -819,7 +746,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Gatherer",
       tafseerEng: "Allah will assemble all humanity together on Judgment Day.",
       tafseerUrdu: "اللہ قیامت کے دن تمام لوگوں کو ایک جگہ جمع کرنے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 88,
@@ -828,7 +754,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Absolutely Rich",
       tafseerEng: "Allah is independent, rich, and does not require anything.",
       tafseerUrdu: "اللہ سب سے بے نیاز ہے اور حقیقی دولت کا مالک ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 89,
@@ -837,7 +762,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Enricher",
       tafseerEng: "Allah makes whomever He pleases wealthy and satisfied.",
       tafseerUrdu: "اللہ جسے چاہتا ہے اپنی رحمت سے مالا مال کر دیتا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 90,
@@ -846,7 +770,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Withholder / Preventer",
       tafseerEng: "Allah stops or prevents things that are harmful or not decreed.",
       tafseerUrdu: "اللہ نقصان اور مصیبتوں کو روکنے والا ہے۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 91,
@@ -855,7 +778,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Distressor",
       tafseerEng: "Allah allows affliction and harm to touch people according to His test.",
       tafseerUrdu: "اللہ اپنی حکمت کے تحت آزمائش کے لیے نقصان پہنچانے پر قادر ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 92,
@@ -864,7 +786,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Propitious / Benefactor",
       tafseerEng: "Allah sends real benefits, goodness, and success to people.",
       tafseerUrdu: "اللہ ہی حقیقی فائدہ اور نفع پہنچانے والا ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 93,
@@ -873,7 +794,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Divine Light",
       tafseerEng: "Allah illuminates the cosmos and guides hearts with light.",
       tafseerUrdu: "اللہ کائنات کو روشن کرنے والا اور ہدایت کا نور ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
     {
       id: 94,
@@ -882,7 +802,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Guide",
       tafseerEng: "Allah provides flawless direction and path to truth.",
       tafseerUrdu: "اللہ سیدھی راہ دکھانے والا اور ہدایت دینے والا ہے۔",
-      bg: require("../homeAssets/greencardBg.jpg"),
     },
     {
       id: 95,
@@ -891,7 +810,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Incomparable Originator",
       tafseerEng: "Allah created the universe with spectacular, unprecedented design.",
       tafseerUrdu: "اللہ بغیر کسی نمونے کے انوکھی کائنات بنانے والا ہے۔",
-      bg: require("../homeAssets/pinkCard.jpg"),
     },
     {
       id: 96,
@@ -900,7 +818,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Everlasting",
       tafseerEng: "Allah will remain forever after everything else has expired.",
       tafseerUrdu: "اللہ ہمیشہ باقی رہنے والا ہے، اسے کبھی فنا نہیں۔",
-      bg: require("../homeAssets/cyanCard.jpg"),
     },
     {
       id: 97,
@@ -909,7 +826,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Ultimate Inheritor",
       tafseerEng: "Allah inherits entire property after all owners pass away.",
       tafseerUrdu: "اللہ سب کے فنا ہونے کے بعد کائنات کا اصل وارث ہے۔",
-      bg: require("../homeAssets/blueCard.jpg"),
     },
     {
       id: 98,
@@ -918,7 +834,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Righteous Guide",
       tafseerEng: "Allah directs everything with flawless wisdom onto the right track.",
       tafseerUrdu: "اللہ سیدھے راستے پر چلانے والا اور بڑا عاقل ہے۔",
-      bg: require("../homeAssets/purpleCard.jpg"),
     },
     {
       id: 99,
@@ -927,7 +842,6 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
       meaning: "The Most Patient",
       tafseerEng: "Allah does not rush to penalize or act before the right time.",
       tafseerUrdu: "اللہ بڑا صابر ہے، گناہ گاروں کو مہلت دینے والا ہے۔",
-      bg: require("../homeAssets/orangeCard.jpg"),
     },
   ];
 
@@ -1025,37 +939,42 @@ const NamesOfAllahScreen: React.FC<Props> = ({ goBack }) => {
 
         {/* CARDS */}
         <View style={styles.cardsContainer}>
-          {filteredNames.map((item) => (
-            <SmoothPressable
-              key={item.id}
-              radius={22}
-              style={styles.cardWrapper}
-              onPress={() => setSelectedName(item)}
-            >
-              <ImageBackground
-                source={item.bg}
-                style={styles.card}
-                imageStyle={{
-                  borderRadius: 22,
-                }}
+          {filteredNames.map((item) => {
+            const colors =
+              NAME_CARD_COLORS[(item.id - 1) % NAME_CARD_COLORS.length];
+            return (
+              <SmoothPressable
+                key={item.id}
+                radius={20}
+                style={styles.cardWrapper}
+                onPress={() => setSelectedName(item)}
               >
-                <View style={styles.nameRow}>
-                  {/* ENGLISH */}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.englishName}>{item.english}</Text>
-                    <Text style={styles.meaning}>{item.meaning}</Text>
+                <LinearGradient
+                  colors={colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.card}
+                >
+                  <GradCardDecor />
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="moon" size={20} color="#fff" />
                   </View>
-
-                  {/* ARABIC */}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.arabicName}>{item.arabic}</Text>
+                  <View style={styles.cardTextCol}>
+                    <View style={styles.nameRow}>
+                      <View style={styles.nameLeft}>
+                        <Text style={styles.englishName}>{item.english}</Text>
+                        <Text style={styles.meaning} numberOfLines={1}>
+                          {item.meaning}
+                        </Text>
+                      </View>
+                      <Text style={styles.arabicName}>{item.arabic}</Text>
+                    </View>
                   </View>
-
-                  <Ionicons name="chevron-forward" size={28} color="#fff" />
-                </View>
-              </ImageBackground>
-            </SmoothPressable>
-          ))}
+                  <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
+                </LinearGradient>
+              </SmoothPressable>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1070,12 +989,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F6F7FB",
   },
   header: {
-    paddingTop: 35,
+    paddingTop: 70,
     paddingBottom: 35,
     alignItems: "center",
   },
   detailHeader: {
-    paddingTop: 35,
+    paddingTop: 70,
     paddingBottom: 50,
     alignItems: "center",
   },
@@ -1108,44 +1027,66 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   cardsContainer: {
-    paddingHorizontal: 18,
-    paddingTop: 25,
+    paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: 50,
   },
   cardWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   card: {
-    borderRadius: 22,
-    paddingVertical: 22,
-    paddingHorizontal: 24,
+    minHeight: 88,
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     overflow: "hidden",
-    minHeight: 110,
+    position: "relative",
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
     justifyContent: "center",
+    zIndex: 1,
+  },
+  cardTextCol: {
+    flex: 1,
+    zIndex: 1,
   },
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
+  },
+  nameLeft: {
+    flex: 1,
   },
   englishName: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "800",
   },
   meaning: {
-    color: "#F3EFFF",
+    color: "#F3EEFF",
     fontSize: 12,
-    marginTop: 5,
+    marginTop: 4,
     fontWeight: "600",
   },
   arabicName: {
     color: "#fff",
-    fontSize: 28,
+    fontSize: 22,
     textAlign: "right",
-    fontWeight: "bold",
-    lineHeight: 42,
-    marginRight: 10,
+    fontWeight: "800",
+    lineHeight: 32,
+    maxWidth: "42%",
   },
   detailCard: {
     backgroundColor: "#fff",

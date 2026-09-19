@@ -22,6 +22,8 @@ import {
   WordTriple,
 } from "../../data/quizGames";
 import { bumpPlayCount, getPlayCount } from "../../services/quizPlayStore";
+import { playUiSound } from "../../services/soundService";
+import { useClaimGameReward } from "../../hooks/useClaimGameReward";
 import {
   LevelClearModal,
   QuizLangChips,
@@ -55,6 +57,7 @@ const MeaningGame: React.FC<Props> = ({ onExitToHub }) => {
   const ui = QUIZ_UI[uiLang];
   const q = questions[index];
   const triesLeft = Math.max(0, MAX_WRONG_ATTEMPTS - wrong);
+  useClaimGameReward("meaning", level, clearOpen);
 
   const buildQuestions = (round: WordTriple[], pool: WordTriple[], ans: AnswerLang) => {
     return round.map((item) => {
@@ -150,12 +153,15 @@ const MeaningGame: React.FC<Props> = ({ onExitToHub }) => {
           lockedRef.current = true;
           const s = starsFromWrongAttempts(wrongRef.current);
           setStars(s);
+          playUiSound("gameWin");
           setClearOpen(true);
         } else {
+          playUiSound("success");
           setIndex((i) => i + 1);
         }
       }, 450);
     } else {
+      playUiSound("wrong");
       setFlash("bad");
       if (wrongRef.current >= MAX_WRONG_ATTEMPTS) return;
       const next = wrongRef.current + 1;

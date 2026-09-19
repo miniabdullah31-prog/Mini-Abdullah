@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   ImageBackground,
   StatusBar,
   TextInput,
@@ -22,6 +23,7 @@ import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DUAS, DuaItem } from "../data/duas";
 import { playDuaAudio, stopDuaAudio } from "../services/duaAudio";
+import { resolveMediaUrl } from "../services/mediaService";
 import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
@@ -37,8 +39,27 @@ const STATUS_BAR_HEIGHT =
 const VIDEO_PLAYER_HEIGHT =
   SCREEN_HEIGHT - STATUS_BAR_HEIGHT - VIDEO_OVERLAY_HEADER - 24;
 
-/** RN 0.85 + Android: resolve bundled mp4 to a file URI for reliable decode. */
-function resolveVideoSource(video: number) {
+/** Parents Dua only — vertical 9:16 card + fullscreen viewer */
+const PARENTS_DUA_ID = 5;
+const PARENTS_VIDEO_TITLE = "Dua for Parents";
+const PARENTS_CARD_WIDTH = Math.min(SCREEN_WIDTH - 72, 240);
+const PARENTS_CARD_HEIGHT = Math.round((PARENTS_CARD_WIDTH * 16) / 9);
+const PARENTS_VIEW_WIDTH = (() => {
+  const byWidth = SCREEN_WIDTH;
+  const byHeight = Math.round((SCREEN_HEIGHT * 9) / 16);
+  return Math.min(byWidth, byHeight);
+})();
+const PARENTS_VIEW_HEIGHT = Math.round((PARENTS_VIEW_WIDTH * 16) / 9);
+
+type DuaVideoRef = number | string;
+
+/** Bundled mp4 (packager id) or backend `/media/...` URL. */
+function resolveVideoSource(video: DuaVideoRef) {
+  if (typeof video === "string") {
+    const uri = resolveMediaUrl(video);
+    return { uri: uri || video };
+  }
+
   const resolved = Image.resolveAssetSource(video);
   if (!resolved?.uri) return video;
 
@@ -54,12 +75,31 @@ function resolveVideoSource(video: number) {
   return { uri };
 }
 
-/** First-frame preview on the card (paused, muted). */
+/** First-frame preview on the card (paused, muted). Bundled assets only — remote waits until play. */
 function DuaVideoThumbnail({ video }: { video: number }) {
   return (
     <Video
       source={resolveVideoSource(video)}
       style={styles.videoThumb}
+      paused
+      muted
+      repeat={false}
+      resizeMode="cover"
+      controls={false}
+      disableFocus
+      playInBackground={false}
+      posterResizeMode="cover"
+      {...(Platform.OS === "android" ? { useTextureView: true } : {})}
+    />
+  );
+}
+
+/** Parents card cover — remote backend video, paused (no autoplay on card). */
+function ParentsVideoCover({ video }: { video: string }) {
+  return (
+    <Video
+      source={resolveVideoSource(video)}
+      style={styles.parentsCover}
       paused
       muted
       repeat={false}
@@ -79,6 +119,9 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
   const [lang, setLang] = useState<LangMode>("ar");
   const [speaking, setSpeaking] = useState(false);
   const [videoVisible, setVideoVisible] = useState(false);
+  const [parentsDuration, setParentsDuration] = useState(0);
+  const [parentsCurrent, setParentsCurrent] = useState(0);
+  const [parentsSeekWidth, setParentsSeekWidth] = useState(0);
   const videoRef = useRef<VideoRef>(null);
 
   useEffect(() => {
@@ -89,6 +132,8 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
 
   const closeVideo = useCallback(() => {
     setVideoVisible(false);
+    setParentsDuration(0);
+    setParentsCurrent(0);
   }, []);
 
   const filteredDuas = useMemo(() => {
@@ -143,7 +188,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
         return true;
       }
       return false;
-    }, [videoVisible, selectedDua, closeDetail]),
+    }, [videoVisible, selectedDua, closeDetail, closeVideo]),
     [videoVisible, selectedDua, closeDetail],
   );
 
@@ -239,29 +284,64 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
 
             <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Video</Text>
             {selectedDua.video ? (
-              <TouchableOpacity
-                style={styles.videoCard}
-                activeOpacity={0.88}
-                onPress={openVideo}
-              >
-                <View style={styles.videoCardFrame}>
-                  <LinearGradient
-                    colors={selectedDua.colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.videoThumbFallback}
-                  />
-                  <DuaVideoThumbnail video={selectedDua.video} />
-                  <View style={styles.videoThumbDim} />
-                  <View style={styles.videoThumbContent}>
-                    <View style={styles.playCircle}>
-                      <Ionicons name="play" size={28} color="#5B33C4" />
+              selectedDua.id === PARENTS_DUA_ID &&
+              typeof selectedDua.video === "string" ? (
+                <View style={styles.parentsCardWrap}>
+                  <TouchableOpacity
+                    style={styles.parentsCard}
+                    activeOpacity={0.88}
+                    onPress={openVideo}
+                    accessibilityRole="button"
+                    accessibilityLabel="Watch Dua for Parents video"
+                  >
+                    <View style={styles.parentsCardFrame}>
+                      <LinearGradient
+                        colors={selectedDua.colors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.parentsCoverFallback}
+                      />
+                      {!videoVisible ? (
+                        <ParentsVideoCover video={selectedDua.video} />
+                      ) : null}
+                      <View style={styles.videoThumbDim} />
+                      <View style={styles.videoThumbContent}>
+                        <View style={styles.playCircle}>
+                          <Ionicons name="play" size={28} color="#5B33C4" />
+                        </View>
+                        <Text style={styles.videoTitle}>Watch explanation</Text>
+                        <Text style={styles.videoSub}>{selectedDua.caption}</Text>
+                      </View>
                     </View>
-                    <Text style={styles.videoTitle}>Watch explanation</Text>
-                    <Text style={styles.videoSub}>{selectedDua.caption}</Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.videoCard}
+                  activeOpacity={0.88}
+                  onPress={openVideo}
+                >
+                  <View style={styles.videoCardFrame}>
+                    <LinearGradient
+                      colors={selectedDua.colors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.videoThumbFallback}
+                    />
+                    {typeof selectedDua.video === "number" ? (
+                      <DuaVideoThumbnail video={selectedDua.video} />
+                    ) : null}
+                    <View style={styles.videoThumbDim} />
+                    <View style={styles.videoThumbContent}>
+                      <View style={styles.playCircle}>
+                        <Ionicons name="play" size={28} color="#5B33C4" />
+                      </View>
+                      <Text style={styles.videoTitle}>Watch explanation</Text>
+                      <Text style={styles.videoSub}>{selectedDua.caption}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              )
             ) : (
               <View style={styles.comingSoonCard}>
                 <Ionicons name="videocam-outline" size={28} color="#9A8BC7" />
@@ -276,49 +356,159 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
 
         {/* Full-screen overlay — RN 0.85 Modal breaks Android video surface */}
         {videoVisible && selectedDua.video ? (
-          <View style={styles.videoOverlay}>
-            <SafeAreaView style={styles.videoOverlaySafeTop}>
-              <View style={styles.videoModalHeader}>
-                <Text style={styles.videoModalTitle}>{selectedDua.title}</Text>
-                <TouchableOpacity
-                  style={styles.videoCloseBtn}
-                  onPress={closeVideo}
-                  accessibilityLabel="Close video"
-                >
-                  <Ionicons name="close" size={24} color="#fff" />
-                </TouchableOpacity>
+          selectedDua.id === PARENTS_DUA_ID &&
+          typeof selectedDua.video === "string" ? (
+            <View style={styles.parentsViewer}>
+              <BackButton onPress={closeVideo} />
+              <View style={styles.parentsViewerCenter}>
+                <Video
+                  key={`parents-player-${selectedDua.id}-h264`}
+                  ref={videoRef}
+                  source={(() => {
+                    const source = resolveVideoSource(selectedDua.video);
+                    if (__DEV__) {
+                      console.log(
+                        "[ParentsDuaVideo] source.uri=",
+                        typeof source === "object" && source && "uri" in source
+                          ? source.uri
+                          : source,
+                      );
+                      console.log(
+                        "[ParentsDuaVideo] path=",
+                        selectedDua.video,
+                        "API_BASE_URL via resolveMediaUrl",
+                      );
+                    }
+                    return source;
+                  })()}
+                  style={{
+                    width: PARENTS_VIEW_WIDTH,
+                    height: PARENTS_VIEW_HEIGHT,
+                  }}
+                  controls={false}
+                  resizeMode="cover"
+                  muted={false}
+                  volume={1.0}
+                  paused={false}
+                  ignoreSilentSwitch="ignore"
+                  mixWithOthers="mix"
+                  playInBackground={false}
+                  playWhenInactive
+                  shutterColor="transparent"
+                  bufferConfig={{
+                    minBufferMs: 1500,
+                    maxBufferMs: 8000,
+                    bufferForPlaybackMs: 250,
+                    bufferForPlaybackAfterRebufferMs: 500,
+                  }}
+                  {...(Platform.OS === "android"
+                    ? { useTextureView: true }
+                    : {})}
+                  onLoad={(meta) => {
+                    if (__DEV__) {
+                      console.log("[ParentsDuaVideo] onLoad", {
+                        duration: meta?.duration,
+                        naturalSize: meta?.naturalSize,
+                      });
+                    }
+                    setParentsDuration(meta.duration || 0);
+                    setParentsCurrent(0);
+                  }}
+                  onProgress={(p) => {
+                    setParentsCurrent(p.currentTime || 0);
+                  }}
+                  onError={(e) => {
+                    console.warn(
+                      "[ParentsDuaVideo] onError",
+                      JSON.stringify(e?.error ?? e, null, 2),
+                    );
+                  }}
+                  onEnd={closeVideo}
+                />
               </View>
-            </SafeAreaView>
-            <Video
-              key={`dua-player-${selectedDua.id}`}
-              ref={videoRef}
-              source={resolveVideoSource(selectedDua.video)}
-              style={{
-                width: SCREEN_WIDTH,
-                height: VIDEO_PLAYER_HEIGHT,
-              }}
-              controls
-              resizeMode="contain"
-              muted={false}
-              volume={1.0}
-              paused={false}
-              ignoreSilentSwitch="ignore"
-              mixWithOthers="mix"
-              playInBackground={false}
-              playWhenInactive
-              shutterColor="transparent"
-              bufferConfig={{
-                minBufferMs: 1500,
-                maxBufferMs: 8000,
-                bufferForPlaybackMs: 250,
-                bufferForPlaybackAfterRebufferMs: 500,
-              }}
-              {...(Platform.OS === "android"
-                ? { useTextureView: true }
-                : {})}
-              onEnd={closeVideo}
-            />
-          </View>
+              <View style={styles.parentsViewerBottom} pointerEvents="box-none">
+                <Text style={styles.parentsViewerTitle}>{PARENTS_VIDEO_TITLE}</Text>
+                <Pressable
+                  style={styles.parentsSeekHit}
+                  onLayout={(e) =>
+                    setParentsSeekWidth(e.nativeEvent.layout.width)
+                  }
+                  onPress={(e) => {
+                    if (!parentsDuration || !parentsSeekWidth) return;
+                    const ratio = Math.max(
+                      0,
+                      Math.min(1, e.nativeEvent.locationX / parentsSeekWidth),
+                    );
+                    const t = ratio * parentsDuration;
+                    videoRef.current?.seek(t);
+                    setParentsCurrent(t);
+                  }}
+                >
+                  <View style={styles.parentsSeekTrack}>
+                    <View
+                      style={[
+                        styles.parentsSeekFill,
+                        {
+                          width: `${
+                            parentsDuration > 0
+                              ? Math.min(
+                                  100,
+                                  (parentsCurrent / parentsDuration) * 100,
+                                )
+                              : 0
+                          }%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.videoOverlay}>
+              <SafeAreaView style={styles.videoOverlaySafeTop}>
+                <View style={styles.videoModalHeader}>
+                  <Text style={styles.videoModalTitle}>{selectedDua.title}</Text>
+                  <TouchableOpacity
+                    style={styles.videoCloseBtn}
+                    onPress={closeVideo}
+                    accessibilityLabel="Close video"
+                  >
+                    <Ionicons name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </SafeAreaView>
+              <Video
+                key={`dua-player-${selectedDua.id}`}
+                ref={videoRef}
+                source={resolveVideoSource(selectedDua.video)}
+                style={{
+                  width: SCREEN_WIDTH,
+                  height: VIDEO_PLAYER_HEIGHT,
+                }}
+                controls
+                resizeMode="contain"
+                muted={false}
+                volume={1.0}
+                paused={false}
+                ignoreSilentSwitch="ignore"
+                mixWithOthers="mix"
+                playInBackground={false}
+                playWhenInactive
+                shutterColor="transparent"
+                bufferConfig={{
+                  minBufferMs: 1500,
+                  maxBufferMs: 8000,
+                  bufferForPlaybackMs: 250,
+                  bufferForPlaybackAfterRebufferMs: 500,
+                }}
+                {...(Platform.OS === "android"
+                  ? { useTextureView: true }
+                  : {})}
+                onEnd={closeVideo}
+              />
+            </View>
+          )
         ) : null}
       </SafeAreaView>
     );
@@ -750,5 +940,81 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  parentsCardWrap: {
+    marginTop: 10,
+    alignItems: "center",
+  },
+  parentsCard: {
+    width: PARENTS_CARD_WIDTH,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  parentsCardFrame: {
+    width: PARENTS_CARD_WIDTH,
+    height: PARENTS_CARD_HEIGHT,
+    position: "relative",
+    backgroundColor: "#1a1a1a",
+  },
+  parentsCoverFallback: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+  },
+  parentsCover: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#1a1a1a",
+  },
+  parentsViewer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    backgroundColor: "#000",
+    zIndex: 9999,
+    elevation: 9999,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  parentsViewerCenter: {
+    width: PARENTS_VIEW_WIDTH,
+    height: PARENTS_VIEW_HEIGHT,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
+  parentsViewerBottom: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "ios" ? 36 : 28,
+    paddingTop: 12,
+  },
+  parentsViewerTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 14,
+    textAlign: "left",
+  },
+  parentsSeekHit: {
+    height: 28,
+    justifyContent: "center",
+  },
+  parentsSeekTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.28)",
+    overflow: "hidden",
+  },
+  parentsSeekFill: {
+    height: "100%",
+    borderRadius: 2,
+    backgroundColor: "#fff",
   },
 });

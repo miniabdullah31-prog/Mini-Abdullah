@@ -56,17 +56,21 @@ const TajweedScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton
+        onPress={() => {
+          if (openId != null) {
+            setOpenId(null);
+            return;
+          }
+          stopSpeaking();
+          goBack();
+        }}
+      />
       <ImageBackground
         source={require("../homeAssets/Quotebg.jpg")}
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton
-          onPress={() => {
-            stopSpeaking();
-            goBack();
-          }}
-        />
         <Text style={styles.headerTitle}>Tajweed</Text>
         <Text style={styles.headerSub}>Simple rules · Tap a card</Text>
       </ImageBackground>

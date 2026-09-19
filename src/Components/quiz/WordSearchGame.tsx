@@ -24,6 +24,8 @@ import {
   WordTriple,
 } from "../../data/quizGames";
 import { bumpPlayCount, getPlayCount } from "../../services/quizPlayStore";
+import { playUiSound } from "../../services/soundService";
+import { useClaimGameReward } from "../../hooks/useClaimGameReward";
 import {
   LevelClearModal,
   QuizLangChips,
@@ -175,6 +177,7 @@ const WordSearchGame: React.FC<Props> = ({ onExitToHub }) => {
   const uiLang: QuizLang = lang === "ar" ? "en" : lang;
   const cellSize = boardW > 0 ? boardW / GRID_SIZE : 36;
   const triesLeft = Math.max(0, MAX_WRONG_ATTEMPTS - wrong);
+  useClaimGameReward("wordsearch", level, clearOpen);
 
   const startLevel = useCallback(
     async (lvl: number, language: QuizLang, countPlay = true) => {
@@ -348,7 +351,10 @@ const WordSearchGame: React.FC<Props> = ({ onExitToHub }) => {
         lockedRef.current = true;
         const s = starsFromWrongAttempts(wrongRef.current);
         setStars(s);
+        playUiSound("gameWin");
         setClearOpen(true);
+      } else {
+        playUiSound("success");
       }
       return;
     }
@@ -362,6 +368,7 @@ const WordSearchGame: React.FC<Props> = ({ onExitToHub }) => {
     const nextWrong = wrongRef.current + 1;
     wrongRef.current = nextWrong;
     setWrong(nextWrong);
+    playUiSound("wrong");
     if (nextWrong >= MAX_WRONG_ATTEMPTS) {
       lockedRef.current = true;
       openFailSoon(setFailOpen);
@@ -417,12 +424,12 @@ const WordSearchGame: React.FC<Props> = ({ onExitToHub }) => {
     <View style={styles.root}>
     <SafeAreaView style={styles.container}>
       <View style={styles.flex}>
+      <BackButton onPress={onBack} />
       <ImageBackground
         source={require("../../homeAssets/Quotebg.jpg")}
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton onPress={onBack} />
         <Text style={styles.title}>{ui.wordSearch}</Text>
         <Text style={styles.sub}>
           {ui.level} {level} · {ui.attemptsLeft}: {triesLeft}

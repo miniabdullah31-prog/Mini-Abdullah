@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Linking,
   TextInput,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import LinearGradient from "react-native-linear-gradient";
@@ -29,10 +30,17 @@ import {
   setRatingStars,
   getNotificationsEnabled,
   setNotificationsEnabled,
+  getSoundEnabled,
+  setSoundEnabled,
 } from "../services/appPrefsStore";
 import { syncNotificationsFromPreference } from "../services/notificationService";
+import {
+  hydrateUiSoundPref,
+  setUiSoundEnabledCache,
+} from "../services/soundService";
 import { resetChatMemoryCache } from "../services/chatHistoryStore";
 import { API_BASE_URL } from "../config/api";
+import { playUiSound } from "../services/soundService";
 import RateAppModal from "./RateAppModal";
 
 type Props = {
@@ -45,6 +53,7 @@ const SUPPORT_EMAIL = "support@miniabdullah31";
 
 const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) => {
   const [notifications, setNotifications] = useState(true);
+  const [appSounds, setAppSounds] = useState(true);
   const [logoutModal, setLogoutModal] = useState(false);
   const [addProfileModal, setAddProfileModal] = useState(false);
   const [supportModal, setSupportModal] = useState(false);
@@ -60,6 +69,108 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
   const [activeEmail, setActiveEmail] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [switchToastName, setSwitchToastName] = useState<string | null>(null);
+
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+  const contentScale = useRef(new Animated.Value(1)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTranslateY = useRef(new Animated.Value(14)).current;
+  const switchGenRef = useRef(0);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSwitchToastTimer = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+  }, []);
+
+  const playContentSwitchAnimation = useCallback(() => {
+    contentOpacity.stopAnimation();
+    contentScale.stopAnimation();
+    contentOpacity.setValue(1);
+    contentScale.setValue(1);
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(contentOpacity, {
+          toValue: 0.4,
+          duration: 140,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentScale, {
+          toValue: 0.985,
+          duration: 140,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentScale, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [contentOpacity, contentScale]);
+
+  const showLoggedInToast = useCallback(
+    (name: string, gen: number) => {
+      const label = String(name || "").trim();
+      if (!label) return;
+
+      clearSwitchToastTimer();
+      setSwitchToastName(label);
+      toastOpacity.stopAnimation();
+      toastTranslateY.stopAnimation();
+      toastOpacity.setValue(0);
+      toastTranslateY.setValue(14);
+
+      Animated.parallel([
+        Animated.timing(toastOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastTranslateY, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      toastTimerRef.current = setTimeout(() => {
+        if (switchGenRef.current !== gen) return;
+        Animated.parallel([
+          Animated.timing(toastOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(toastTranslateY, {
+            toValue: 10,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(({ finished }) => {
+          if (finished && switchGenRef.current === gen) {
+            setSwitchToastName(null);
+          }
+        });
+      }, 2000);
+    },
+    [clearSwitchToastTimer, toastOpacity, toastTranslateY],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearSwitchToastTimer();
+    };
+  }, [clearSwitchToastTimer]);
 
   const refreshAccounts = useCallback(async () => {
     const list = await ensureAccountsHydrated();
@@ -100,12 +211,34 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     }
   }, []);
 
+  const refreshSoundPref = useCallback(async () => {
+    try {
+      const on = await getSoundEnabled();
+      setAppSounds(on);
+      setUiSoundEnabledCache(on);
+    } catch {
+      // keep default
+    }
+  }, []);
+
+  const handleSoundChange = useCallback(async (value: boolean) => {
+    setAppSounds(value);
+    setUiSoundEnabledCache(value);
+    try {
+      await setSoundEnabled(value);
+    } catch {
+      // never crash Profile on sound pref errors
+    }
+  }, []);
+
   // Refresh when Profile screen mounts (screen-number navigation)
   useEffect(() => {
     refreshAccounts();
     refreshRating();
     refreshNotificationsPref();
-  }, [refreshAccounts, refreshRating, refreshNotificationsPref]);
+    refreshSoundPref();
+    hydrateUiSoundPref().catch(() => undefined);
+  }, [refreshAccounts, refreshRating, refreshNotificationsPref, refreshSoundPref]);
 
   const handleAddProfilePress = () => {
     setAddProfileModal(true);
@@ -128,32 +261,55 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     const current = (activeEmail || "").toLowerCase().trim();
     if (!target || target === current || switching) return;
 
+    const gen = ++switchGenRef.current;
     setSwitching(true);
     setActiveEmail(target);
 
     try {
       const ok = await switchToAccount(target);
       if (!ok) {
-        setActiveEmail(current || null);
+        if (switchGenRef.current === gen) {
+          setActiveEmail(current || null);
+        }
         Alert.alert("Switch failed", "Could not switch account. Try again.");
         return;
       }
       resetChatMemoryCache();
       const active = await getActiveAccountEmail();
       if (active !== target) {
-        setActiveEmail(current || null);
+        if (switchGenRef.current === gen) {
+          setActiveEmail(current || null);
+        }
         Alert.alert("Switch failed", "Active ID did not save. Try again.");
         return;
       }
+      if (switchGenRef.current !== gen) return;
+
       setActiveEmail(active);
       const list = await ensureAccountsHydrated();
       setAccounts(list);
       await refreshRating();
+
+      const switched = list.find(
+        (a) => a.email.toLowerCase().trim() === active,
+      );
+      const displayName =
+        (switched?.name || "").trim() ||
+        (active ? active.split("@")[0] : "") ||
+        "User";
+
+      playUiSound("tap");
+      playContentSwitchAnimation();
+      showLoggedInToast(displayName, gen);
     } catch {
-      setActiveEmail(current || null);
+      if (switchGenRef.current === gen) {
+        setActiveEmail(current || null);
+      }
       Alert.alert("Switch failed", "Could not switch account. Try again.");
     } finally {
-      setSwitching(false);
+      if (switchGenRef.current === gen) {
+        setSwitching(false);
+      }
     }
   };
 
@@ -398,6 +554,12 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
+        <Animated.View
+          style={{
+            opacity: contentOpacity,
+            transform: [{ scale: contentScale }],
+          }}
+        >
         <ImageBackground
           source={require("../homeAssets/learn_bg.png")}
           style={styles.headerBg}
@@ -534,6 +696,11 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
           />
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.label}>App sounds</Text>
+          <Switch value={appSounds} onValueChange={handleSoundChange} />
+        </View>
+
         <TouchableOpacity
           style={styles.card}
           onPress={() => setSupportModal(true)}
@@ -601,7 +768,26 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
         >
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
+
+      {switchToastName ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.switchToast,
+            {
+              opacity: toastOpacity,
+              transform: [{ translateY: toastTranslateY }],
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={18} color="#fff" />
+          <Text style={styles.switchToastText} numberOfLines={1}>
+            Logged in as {switchToastName}
+          </Text>
+        </Animated.View>
+      ) : null}
 
       {addProfileModal ? (
         <View style={styles.modalOverlay} pointerEvents="auto">
@@ -848,7 +1034,10 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
         <View style={styles.navbarInner}>
           <TouchableOpacity
             style={styles.navItem}
-            onPress={goToHome}
+            onPress={() => {
+              playUiSound("tap");
+              goToHome();
+            }}
             accessibilityRole="button"
             accessibilityLabel="Home"
           >
@@ -858,7 +1047,10 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
 
           <TouchableOpacity
             style={styles.navItem}
-            onPress={goToTutor}
+            onPress={() => {
+              playUiSound("tap");
+              goToTutor();
+            }}
             accessibilityRole="button"
             accessibilityLabel="Tutor"
           >
@@ -1195,4 +1387,29 @@ const styles = StyleSheet.create({
   navText: { marginTop: 4, fontWeight: "700" },
   navTextActive: { color: "#4B2AA8", fontSize: 16 },
   navTextInactive: { color: "#B8A4F0", fontSize: 13 },
+  switchToast: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 96,
+    zIndex: 10000,
+    elevation: 14,
+    backgroundColor: "#4B2AA8",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#2E1A6B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+  },
+  switchToastText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+    marginLeft: 8,
+    flexShrink: 1,
+  },
 });

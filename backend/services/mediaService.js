@@ -11,6 +11,7 @@ const STORY_SEED = [
     type: "image",
     category: "stories",
     filePath: "stories/prophet-musa.png",
+    thumbnailPath: "stories/thumbs/prophet-musa.jpg",
     extra: { localId: 1 },
   },
   {
@@ -20,6 +21,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/hazrt-younas.png",
     extra: { localId: 2 },
+    thumbnailPath: "stories/thumbs/hazrt-younas.jpg",
   },
   {
     slug: "story-prophet-ibrahim",
@@ -28,6 +30,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/hazrt-ibrahim.png",
     extra: { localId: 3 },
+    thumbnailPath: "stories/thumbs/hazrt-ibrahim.jpg",
   },
   {
     slug: "story-daily-good-deed",
@@ -36,6 +39,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/daily-good-deed.png",
     extra: { localId: 4 },
+    thumbnailPath: "stories/thumbs/daily-good-deed.jpg",
   },
   {
     slug: "story-helping-parents",
@@ -44,6 +48,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/helping-parents.png",
     extra: { localId: 5 },
+    thumbnailPath: "stories/thumbs/helping-parents.jpg",
   },
   {
     slug: "story-seerah-muhammad",
@@ -52,6 +57,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/hzrt-muhammad.png",
     extra: { localId: 6 },
+    thumbnailPath: "stories/thumbs/hzrt-muhammad.jpg",
   },
   {
     slug: "story-honesty",
@@ -60,6 +66,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/honesty.png",
     extra: { localId: 7 },
+    thumbnailPath: "stories/thumbs/honesty.jpg",
   },
   {
     slug: "story-prophet-nuh",
@@ -68,6 +75,7 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/hazrt-nuh.png",
     extra: { localId: 8 },
+    thumbnailPath: "stories/thumbs/hazrt-nuh.jpg",
   },
   {
     slug: "story-prophet-yusuf",
@@ -76,6 +84,34 @@ const STORY_SEED = [
     category: "stories",
     filePath: "stories/hazrt-yusuf.png",
     extra: { localId: 10 },
+    thumbnailPath: "stories/thumbs/hazrt-yusuf.jpg",
+  },
+];
+
+const DUA_SEED = [
+  {
+    slug: "dua-morning",
+    title: "Morning Dua",
+    type: "video",
+    category: "duas",
+    filePath: "duas/morning-dua.mp4",
+    extra: { localId: 1 },
+  },
+  {
+    slug: "dua-sleeping",
+    title: "Sleeping Dua",
+    type: "video",
+    category: "duas",
+    filePath: "duas/sleeping-dua.mp4",
+    extra: { localId: 2 },
+  },
+  {
+    slug: "dua-for-parents",
+    title: "Dua for Parents",
+    type: "video",
+    category: "duas",
+    filePath: "duas/dua-for-parents.mp4",
+    extra: { localId: 5 },
   },
 ];
 
@@ -144,18 +180,86 @@ function ensureStoryFilesCopied() {
   }
 }
 
+const FRONTEND_DUAS_VIDEOS_DIR = path.join(
+  __dirname,
+  "..",
+  "..",
+  "src",
+  "assets",
+  "duas",
+  "videos",
+);
+
+const DUA_VIDEO_COPIES = [
+  ["WhatsApp Video 2026-09-02 at 9.36.35 AM (1).mp4", "duas/sleeping-dua.mp4"],
+  ["WhatsApp Video 2026-09-02 at 9.36.35 AM.mp4", "duas/morning-dua.mp4"],
+];
+
+function ensureDuaVideoCopied() {
+  fs.mkdirSync(path.join(PUBLIC_DIR, "duas"), { recursive: true });
+
+  for (const [fromName, rel] of DUA_VIDEO_COPIES) {
+    const dest = path.join(PUBLIC_DIR, rel);
+    if (fs.existsSync(dest)) continue;
+    const src = path.join(FRONTEND_DUAS_VIDEOS_DIR, fromName);
+    if (!fs.existsSync(src)) continue;
+    fs.copyFileSync(src, dest);
+    console.log(`[media] copied ${fromName} → ${rel}`);
+  }
+
+  // Fallback: sleeping dua from Downloads if still missing
+  const sleepingDest = path.join(PUBLIC_DIR, "duas", "sleeping-dua.mp4");
+  if (!fs.existsSync(sleepingDest)) {
+    const home = process.env.USERPROFILE || process.env.HOME || "";
+    const fromDownloads = path.join(
+      home,
+      "Downloads",
+      "WhatsApp Video 2026-09-02 at 9.36.35 AM (1).mp4",
+    );
+    if (fs.existsSync(fromDownloads)) {
+      fs.copyFileSync(fromDownloads, sleepingDest);
+      console.log("[media] copied Sleeping Dua video → duas/sleeping-dua.mp4");
+    }
+  }
+}
+
 async function seedMediaIfNeeded() {
   ensureStoryFilesCopied();
+  ensureDuaVideoCopied();
 
-  for (const item of STORY_SEED) {
+  for (const item of [...STORY_SEED, ...DUA_SEED]) {
+    const thumbOk = item.thumbnailPath && fileExists(item.thumbnailPath);
     const existing = await Media.findOne({ slug: item.slug });
-    if (existing) continue;
-    if (!fileExists(item.filePath)) {
-      console.log(`[media] skip seed ${item.slug} — file missing: ${item.filePath}`);
+    if (!existing) {
+      if (!fileExists(item.filePath)) {
+        console.log(`[media] skip seed ${item.slug} — file missing: ${item.filePath}`);
+        continue;
+      }
+      await Media.create({
+        ...item,
+        thumbnailPath: thumbOk ? item.thumbnailPath : "",
+      });
+      console.log(`[media] seeded ${item.slug}`);
       continue;
     }
-    await Media.create(item);
-    console.log(`[media] seeded ${item.slug}`);
+    let changed = false;
+    if (thumbOk && existing.thumbnailPath !== item.thumbnailPath) {
+      existing.thumbnailPath = item.thumbnailPath;
+      changed = true;
+    }
+    if (existing.filePath !== item.filePath && fileExists(item.filePath)) {
+      existing.filePath = item.filePath;
+      changed = true;
+    }
+    if (existing.extra?.localId !== item.extra.localId) {
+      existing.extra = { ...(existing.extra || {}), localId: item.extra.localId };
+      existing.markModified("extra");
+      changed = true;
+    }
+    if (changed) {
+      await existing.save();
+      console.log(`[media] updated ${item.slug}`);
+    }
   }
 }
 

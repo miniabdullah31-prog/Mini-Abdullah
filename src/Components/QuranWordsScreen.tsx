@@ -61,17 +61,17 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+        <BackButton
+          onPress={() => {
+            stopSpeaking();
+            setSelected(null);
+          }}
+        />
         <ImageBackground
           source={require("../homeAssets/Quotebg.jpg")}
           style={styles.detailHeader}
           imageStyle={styles.headerRadius}
         >
-          <BackButton
-            onPress={() => {
-              stopSpeaking();
-              setSelected(null);
-            }}
-          />
           <Text style={styles.headerTitle}>{selected.transliteration}</Text>
           <Text style={styles.headerSub}>{selected.meaningEn}</Text>
         </ImageBackground>
@@ -123,12 +123,12 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
       <ImageBackground
         source={require("../homeAssets/Quotebg.jpg")}
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton onPress={goBack} />
         <Text style={styles.headerTitle}>Common Quran Words</Text>
         <Text style={styles.headerSub}>High-frequency words · Offline</Text>
       </ImageBackground>

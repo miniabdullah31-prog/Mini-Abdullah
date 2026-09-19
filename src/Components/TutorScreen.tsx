@@ -10,10 +10,10 @@ import {
   Alert,
   Linking,
   ImageBackground,
+  TouchableOpacity,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import BackButton from "./BackButton";
 import SmoothPressable from "./SmoothPressable";
 import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
@@ -30,8 +30,13 @@ import {
   formatFriendlyDate,
   formatSlotLabel,
 } from "../services/tutorService";
+import { playUiSound } from "../services/soundService";
 
-type Props = { goBack: () => void };
+type Props = {
+  goBack: () => void;
+  goToHome: () => void;
+  goToProfile: () => void;
+};
 type TutorView = "hub" | "booking" | "confirm" | "success" | "appointments";
 
 const STATUS_STYLE: Record<
@@ -72,7 +77,7 @@ function tutorTheme(tutor: Tutor) {
   };
 }
 
-const TutorScreen: React.FC<Props> = ({ goBack }) => {
+const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
   const [view, setView] = useState<TutorView>("hub");
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [hubLoading, setHubLoading] = useState(true);
@@ -167,32 +172,19 @@ const TutorScreen: React.FC<Props> = ({ goBack }) => {
     setBookedAppt(null);
   };
 
-  useFeatureBackHandler(
-    useCallback(() => {
-      if (view === "confirm") {
-        setView("booking");
-        return true;
-      }
-      if (view === "success" || view === "booking" || view === "appointments") {
-        resetToHub();
-        return true;
-      }
-      return false;
-    }, [view]),
-    [view],
-  );
-
-  const headerBack = () => {
+  const headerBack = useCallback((): boolean => {
     if (view === "confirm") {
       setView("booking");
-      return;
+      return true;
     }
     if (view === "success" || view === "booking" || view === "appointments") {
       resetToHub();
-      return;
+      return true;
     }
-    goBack();
-  };
+    return false;
+  }, [view]);
+
+  useFeatureBackHandler(headerBack, [headerBack]);
 
   const submitBooking = async () => {
     if (!selectedTutor || !selectedSlot || bookingLock.current) return;
@@ -206,6 +198,7 @@ const TutorScreen: React.FC<Props> = ({ goBack }) => {
         endTime: selectedSlot.endTime,
       });
       setBookedAppt(appt);
+      playUiSound("achievement");
       setView("success");
     } catch (error: any) {
       Alert.alert(
@@ -261,10 +254,12 @@ const TutorScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-      <BackButton onPress={headerBack} />
 
       {view === "hub" && (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
           <ImageBackground
             source={require("../homeAssets/Quotebg.jpg")}
             style={styles.header}
@@ -348,7 +343,7 @@ const TutorScreen: React.FC<Props> = ({ goBack }) => {
       {(view === "booking" || view === "confirm") && selectedTutor && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
         >
           <ImageBackground
             source={require("../homeAssets/Quotebg.jpg")}
@@ -524,7 +519,7 @@ const TutorScreen: React.FC<Props> = ({ goBack }) => {
       {view === "appointments" && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
         >
           <ImageBackground
             source={require("../homeAssets/Quotebg.jpg")}
@@ -573,6 +568,43 @@ const TutorScreen: React.FC<Props> = ({ goBack }) => {
           )}
         </ScrollView>
       )}
+
+      <View style={styles.navbar}>
+        <View style={styles.navbarInner}>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => {
+              playUiSound("tap");
+              goToHome();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Home"
+          >
+            <Ionicons name="home" size={26} color="#B8A4F0" />
+            <Text style={[styles.navText, styles.navTextInactive]}>Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.navItem}
+            accessibilityRole="button"
+            accessibilityLabel="Tutor"
+          >
+            <Ionicons name="school" size={26} color="#4B2AA8" />
+            <Text style={[styles.navText, styles.navTextActive]}>Tutor</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => {
+              playUiSound("tap");
+              goToProfile();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
+          >
+            <Ionicons name="person" size={26} color="#B8A4F0" />
+            <Text style={[styles.navText, styles.navTextInactive]}>Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -663,7 +695,7 @@ const styles = StyleSheet.create({
     color: "#35158B",
     fontSize: 15,
   },
-  cards: { paddingHorizontal: 20, paddingBottom: 40, marginTop: 10 },
+  cards: { paddingHorizontal: 20, paddingBottom: 120, marginTop: 10 },
   cardWrap: { marginBottom: 16, borderRadius: 24, overflow: "hidden" },
   tutorCard: {
     borderRadius: 24,
@@ -864,4 +896,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelBtnText: { color: "#B91C1C", fontWeight: "800" },
+  navbar: {
+    position: "absolute",
+    bottom: 12,
+    left: 15,
+    right: 15,
+    backgroundColor: "transparent",
+    paddingVertical: 0,
+    zIndex: 9999,
+  },
+  navbarInner: {
+    backgroundColor: "#fff",
+    borderRadius: 35,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 14,
+    elevation: 12,
+    zIndex: 9999,
+  },
+  navItem: { alignItems: "center" },
+  navText: { marginTop: 4, fontWeight: "700" },
+  navTextActive: { color: "#4B2AA8", fontSize: 16 },
+  navTextInactive: { color: "#B8A4F0", fontSize: 13 },
 });

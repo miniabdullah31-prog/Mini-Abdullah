@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -13,35 +13,54 @@ import {
 type Props = Omit<ImageProps, "source"> & {
   remoteUri?: string | null;
   localSource?: ImageSourcePropType | null;
+  /** Use bundled asset immediately (API failed). Happy path waits for the remote thumb. */
+  preferLocal?: boolean;
   style?: StyleProp<ImageStyle>;
 };
 
 /**
  * Prefer a remote URL, fall back to the bundled asset if it fails or is missing.
- * Local `defaultSource` shows immediately while the remote file loads.
+ * Do not decode the large local PNG while a remote thumb is loading.
  */
 const RemoteImage: React.FC<Props> = ({
   remoteUri,
   localSource,
+  preferLocal = false,
   onError,
+  onLoad,
   style,
   ...rest
 }) => {
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const startedAt = useRef(0);
 
   useEffect(() => {
     setFailed(false);
-    setLoading(Boolean(remoteUri));
+    const willRemote = Boolean(remoteUri);
+    setLoading(willRemote);
+    startedAt.current = willRemote ? Date.now() : 0;
   }, [remoteUri]);
 
   const useRemote = Boolean(remoteUri) && !failed;
-  const source: ImageSourcePropType | undefined =
-    useRemote && remoteUri
-      ? { uri: remoteUri }
-      : localSource || undefined;
+  const useLocal = !useRemote && Boolean(localSource) && (preferLocal || failed);
+
+  const source: ImageSourcePropType | undefined = useRemote && remoteUri
+    ? { uri: remoteUri, cache: "force-cache" }
+    : useLocal
+      ? localSource || undefined
+      : undefined;
 
   if (!source) {
+    if (remoteUri && loading) {
+      return (
+        <View style={style}>
+          <View style={styles.spinner} pointerEvents="none">
+            <ActivityIndicator color="#FFFFFF" />
+          </View>
+        </View>
+      );
+    }
     return null;
   }
 
@@ -49,13 +68,23 @@ const RemoteImage: React.FC<Props> = ({
     <View style={style}>
       <Image
         {...rest}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         source={source}
-        defaultSource={
-          useRemote && localSource ? localSource : undefined
-        }
         onLoadEnd={() => setLoading(false)}
+        onLoad={(event) => {
+          if (__DEV__ && useRemote && startedAt.current) {
+            console.log(
+              "[stories-perf] image",
+              Date.now() - startedAt.current + "ms",
+              remoteUri,
+            );
+          }
+          onLoad?.(event);
+        }}
         onError={(event) => {
+          if (__DEV__) {
+            console.log("[stories-perf] image-error fallback-local", remoteUri);
+          }
           if (useRemote && localSource) {
             setFailed(true);
             setLoading(false);
@@ -74,10 +103,10 @@ const RemoteImage: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   spinner: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
   },
 });
 
-export default RemoteImage;
+export default React.memo(RemoteImage);

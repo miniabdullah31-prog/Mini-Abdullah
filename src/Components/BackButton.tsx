@@ -29,7 +29,8 @@ const styles = StyleSheet.create({
   wrapper: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 9999,
-    elevation: 9999,
+    // Do NOT set elevation on this full-screen wrapper — on Android it
+    // composites above TextureView and hides video frames (audio still plays).
   },
   backButton: {
     position: "absolute",
@@ -40,6 +41,8 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 9999,
+    elevation: 8,
   },
   pressed: {
     backgroundColor: "rgba(0, 0, 0, 0.18)",

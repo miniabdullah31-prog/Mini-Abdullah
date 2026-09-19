@@ -31,6 +31,8 @@ import {
   wuduStepTitle,
 } from "../../data/wuduMission";
 import { bumpPlayCount, getPlayCount } from "../../services/quizPlayStore";
+import { playUiSound } from "../../services/soundService";
+import { useClaimGameReward } from "../../hooks/useClaimGameReward";
 import {
   FailOverlay,
   LevelClearModal,
@@ -68,6 +70,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
   const ui = WUDU_UI[uiLang];
   const quizUi = QUIZ_UI[uiLang === "ur" ? "ur" : "en"];
   const triesLeft = Math.max(0, MAX_WRONG_ATTEMPTS - wrong);
+  useClaimGameReward("wudumission", level, clearOpen);
   const challenge = challenges[challengeIndex];
 
   const setupOrderRound = useCallback(() => {
@@ -271,8 +274,10 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
         if (orderTarget >= WUDU_STEPS.length) {
           lockedRef.current = true;
           setStars(starsFromWrongAttempts(wrongRef.current));
+          playUiSound("gameWin");
           setClearOpen(true);
         } else {
+          playUiSound("wudu");
           setOrderTarget((t) => t + 1);
           setOrderOptions(shuffle([...WUDU_STEPS]));
         }
@@ -280,6 +285,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
       return;
     }
 
+    playUiSound("wrong");
     setFlash("bad");
     wrongRef.current += 1;
     setWrong(wrongRef.current);
@@ -289,6 +295,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
   const finishChallenge = () => {
     lockedRef.current = true;
     setStars(starsRef.current);
+    playUiSound("success");
     setChallengeResultOpen(true);
   };
 
@@ -314,6 +321,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
       setPickedId(step.id);
       setFlash("ok");
       playSuccess();
+      playUiSound("wudu");
       setTimeout(() => {
         setFlash(null);
         setPickedId(null);
@@ -330,6 +338,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
     lockedRef.current = true;
     setPickedId(step.id);
     setFlash("bad");
+    playUiSound("wrong");
     playShake();
     if (starsRef.current > 0) {
       starsRef.current -= 1;

@@ -26,17 +26,17 @@ const NooraniQaidaScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton
+        onPress={() => {
+          stopSpeaking();
+          goBack();
+        }}
+      />
       <ImageBackground
         source={require("../homeAssets/Quotebg.jpg")}
         style={styles.header}
         imageStyle={styles.headerRadius}
       >
-        <BackButton
-          onPress={() => {
-            stopSpeaking();
-            goBack();
-          }}
-        />
         <Text style={styles.headerTitle}>Noorani Qaida</Text>
         <Text style={styles.headerSub}>All letters on one page · Tap play</Text>
       </ImageBackground>

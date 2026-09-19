@@ -20,6 +20,8 @@ import {
   TrueFalseItem,
 } from "../../data/quizGames";
 import { bumpPlayCount, getPlayCount } from "../../services/quizPlayStore";
+import { playUiSound } from "../../services/soundService";
+import { useClaimGameReward } from "../../hooks/useClaimGameReward";
 import {
   LevelClearModal,
   QuizLangChips,
@@ -45,6 +47,7 @@ const TrueFalseGame: React.FC<Props> = ({ onExitToHub }) => {
   const ui = QUIZ_UI[uiLang];
   const item = items[index];
   const triesLeft = Math.max(0, MAX_WRONG_ATTEMPTS - wrong);
+  useClaimGameReward("truefalse", level, clearOpen);
 
   const startLevel = useCallback(async (lvl: number, countPlay = true) => {
     lockedRef.current = false;
@@ -126,14 +129,17 @@ const TrueFalseGame: React.FC<Props> = ({ onExitToHub }) => {
           lockedRef.current = true;
           const s = starsFromWrongAttempts(wrongRef.current);
           setStars(s);
+          playUiSound("gameWin");
           setClearOpen(true);
         } else {
+          playUiSound("success");
           setIndex((i) => i + 1);
         }
       }, 450);
       return;
     }
 
+    playUiSound("wrong");
     setFlash("bad");
     wrongRef.current += 1;
     setWrong(wrongRef.current);

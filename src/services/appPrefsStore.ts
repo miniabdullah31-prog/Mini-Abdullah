@@ -160,6 +160,23 @@ export async function setNotificationsEnabled(
   );
 }
 
+/** Device-wide UI sound preference (Profile switch). Default ON. */
+const SOUND_ENABLED_KEY = "miniabdullah_sound_enabled_v1";
+
+export async function getSoundEnabled(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(SOUND_ENABLED_KEY);
+    if (raw == null) return true;
+    return raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+export async function setSoundEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(SOUND_ENABLED_KEY, enabled ? "1" : "0");
+}
+
 export type CachedPrayerTimes = {
   city?: string;
   fajr?: string;

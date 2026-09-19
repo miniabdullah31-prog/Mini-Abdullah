@@ -45,6 +45,7 @@ const signup = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      authProvider: "local",
     });
 
     await newUser.save();
@@ -466,7 +467,7 @@ const googleLogin = async (req, res) => {
       });
       await user.save();
     } else {
-      if (!user.googleId) {
+      if (user.googleId == null || user.googleId === "") {
         user.googleId = uid;
       }
       if (!user.name && name) {

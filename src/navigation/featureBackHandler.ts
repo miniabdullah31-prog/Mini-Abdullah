@@ -13,7 +13,7 @@ export function pushFeatureBackHandler(fn: FeatureBackFn): () => void {
   };
 }
 
-/** Try feature handlers innermost-first; false = pop to Home. */
+/** Try feature handlers innermost-first; false = leave this App screen. */
 export function tryFeatureBack(): boolean {
   for (let i = stack.length - 1; i >= 0; i--) {
     if (stack[i]()) {

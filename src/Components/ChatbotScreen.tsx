@@ -320,6 +320,7 @@ const ChatbotScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4B2AA8" />
+      {!isSidebarOpen && <BackButton onPress={goBack} />}
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -400,21 +401,17 @@ const ChatbotScreen: React.FC<Props> = ({ goBack }) => {
           )}
 
           <View style={styles.mainContent}>
-            {/* Same BackButton as other screens — full tap area, proper top offset */}
             {!isSidebarOpen && (
-              <>
-                <BackButton onPress={goBack} />
-                <TouchableOpacity
-                  style={styles.openSidebarBtn}
-                  onPress={() => setIsSidebarOpen(true)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Open chats sidebar"
-                >
-                  <Text style={styles.sidebarChevron}>{">"}</Text>
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity
+                style={styles.openSidebarBtn}
+                onPress={() => setIsSidebarOpen(true)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open chats sidebar"
+              >
+                <Text style={styles.sidebarChevron}>{">"}</Text>
+              </TouchableOpacity>
             )}
 
             <ImageBackground
@@ -697,7 +694,7 @@ const styles = StyleSheet.create({
   openSidebarBtn: {
     position: "absolute",
     top: 50,
-    left: 78,
+    left: 92,
     zIndex: 9999,
     elevation: 9999,
     width: 52,

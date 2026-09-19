@@ -20,6 +20,8 @@ const { startDailyNotificationScheduler } = require("./services/dailyNotificatio
 const { seedTutorsIfNeeded } = require("./services/tutorService");
 const { seedMediaIfNeeded, PUBLIC_DIR } = require("./services/mediaService");
 const mediaRoutes = require("./routes/mediaRoutes");
+const rewardsRoutes = require("./routes/rewardsRoutes");
+const User = require("./models/User");
 
 const app = express();
 
@@ -77,6 +79,7 @@ app.use("/api/daily-content", dailyContentRoutes);
 app.use("/api/tutors", tutorRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/media", mediaRoutes);
+app.use("/api/rewards", rewardsRoutes);
 
 app.use(
   "/media",
@@ -85,8 +88,17 @@ app.use(
     next();
   },
   express.static(PUBLIC_DIR, {
-    maxAge: "7d",
+    maxAge: "30d",
+    etag: true,
+    lastModified: true,
     index: false,
+    setHeaders(res) {
+      // Public lesson/story files only — not private user uploads.
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=2592000, stale-while-revalidate=86400",
+      );
+    },
   }),
 );
 
@@ -106,6 +118,11 @@ async function start() {
         await seedMediaIfNeeded();
       } catch (mediaSeedErr) {
         console.log("Media seed error:", mediaSeedErr.message);
+      }
+      try {
+        await User.ensureGoogleIdIndex();
+      } catch (googleIdIdxErr) {
+        console.log("User googleId index migrate error:", googleIdIdxErr.message);
       }
     } else {
       console.log("MONGO_URI missing — DB features unavailable");

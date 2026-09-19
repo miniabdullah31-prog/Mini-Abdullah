@@ -1,15 +1,16 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
+  FlatList,
   ImageBackground,
   StatusBar,
   Linking,
   Alert,
   Dimensions,
+  ListRenderItem,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import GradCardDecor from "./GradCardDecor";
@@ -24,6 +25,7 @@ import {
   indexMediaByLocalId,
   RemoteMedia,
 } from "../services/mediaService";
+import { API_BASE_URL } from "../config/api";
 
 type Props = { goBack: () => void };
 
@@ -37,15 +39,36 @@ const CARD_H = Math.round(CARD_W * 1.25);
 
 const StoriesScreen: React.FC<Props> = ({ goBack }) => {
   const [remoteById, setRemoteById] = useState<Record<number, RemoteMedia>>({});
+  const [apiFailed, setApiFailed] = useState(false);
+  const screenOpenedAt = useRef(Date.now());
+  const loggedTotal = useRef(false);
 
   useEffect(() => {
     let active = true;
     fetchMediaByCategory("stories")
       .then((items) => {
-        if (active) setRemoteById(indexMediaByLocalId(items));
+        if (__DEV__) {
+          const thumbs = items.map((item) => item.thumbnailUrl);
+          const usingFullPng = thumbs.some((url) => /\.png(\?|$)/i.test(url));
+          console.log(
+            "[stories-perf] media mapped",
+            API_BASE_URL,
+            "count=" + items.length,
+            usingFullPng ? "WARN-thumbnail-is-full-png" : "thumbs-ok",
+            thumbs.join(" | "),
+          );
+        }
+        if (active) {
+          setApiFailed(false);
+          setRemoteById(indexMediaByLocalId(items));
+        }
       })
-      .catch(() => {
-        // Keep bundled covers — app stays usable offline / if media API is down.
+      .catch((err: unknown) => {
+        if (__DEV__) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.log("[stories-perf] api-failed fallback-local", API_BASE_URL, message);
+        }
+        if (active) setApiFailed(true);
       });
     return () => {
       active = false;
@@ -59,19 +82,70 @@ const StoriesScreen: React.FC<Props> = ({ goBack }) => {
       return;
     }
     try {
-      // Do not gate on Linking.canOpenURL — Android often returns false for https
-      // even when openURL succeeds (false negative).
       await Linking.openURL(url);
     } catch {
       Alert.alert("Could not open", "Unable to open YouTube for this short.");
     }
   }, []);
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-      <BackButton onPress={goBack} />
-      <ScrollView showsVerticalScrollIndicator={false}>
+  const onThumbLoaded = useCallback(() => {
+    if (!__DEV__ || loggedTotal.current) return;
+    loggedTotal.current = true;
+    console.log(
+      "[stories-perf] first-thumbnail-ready",
+      Date.now() - screenOpenedAt.current + "ms",
+    );
+  }, []);
+
+  const renderItem: ListRenderItem<ShortClip> = useCallback(
+    ({ item }) => {
+      const remote = remoteById[item.id];
+      const thumbUri = remote?.thumbnailUrl || null;
+      const hasCover = Boolean(item.cover || thumbUri);
+      return (
+        <View style={styles.cardCol}>
+          <SmoothPressable
+            radius={22}
+            onPress={() => openOnYouTube(item)}
+            style={styles.cardWrapper}
+          >
+            <LinearGradient
+              colors={item.colors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.card}
+            >
+              {!item.cover && !thumbUri && <GradCardDecor />}
+              {hasCover ? (
+                <RemoteImage
+                  remoteUri={thumbUri}
+                  localSource={item.cover}
+                  preferLocal={apiFailed}
+                  style={styles.cover}
+                  resizeMode="cover"
+                  onLoad={onThumbLoaded}
+                />
+              ) : null}
+              <View style={styles.playOverlay} pointerEvents="none">
+                <View style={styles.playCircle}>
+                  <Ionicons name="logo-youtube" size={22} color="#FF0000" />
+                </View>
+              </View>
+            </LinearGradient>
+          </SmoothPressable>
+
+          <Text style={styles.listCaption} numberOfLines={2}>
+            {item.caption}
+          </Text>
+        </View>
+      );
+    },
+    [apiFailed, onThumbLoaded, openOnYouTube, remoteById],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <>
         <ImageBackground
           source={require("../homeAssets/Quotebg.jpg")}
           style={styles.header}
@@ -83,47 +157,30 @@ const StoriesScreen: React.FC<Props> = ({ goBack }) => {
           </Text>
           <HeaderSpark />
         </ImageBackground>
-
         <Text style={styles.sectionTitle}>Watch</Text>
+      </>
+    ),
+    [],
+  );
 
-        <View style={styles.grid}>
-          {ISLAMIC_SHORTS.map((item) => (
-            <View key={item.id} style={styles.cardCol}>
-              <SmoothPressable
-                radius={22}
-                onPress={() => openOnYouTube(item)}
-                style={styles.cardWrapper}
-              >
-                <LinearGradient
-                  colors={item.colors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.card}
-                >
-                  {!item.cover && <GradCardDecor />}
-                  {item.cover || remoteById[item.id]?.thumbnailUrl ? (
-                    <RemoteImage
-                      remoteUri={remoteById[item.id]?.thumbnailUrl}
-                      localSource={item.cover}
-                      style={styles.cover}
-                      resizeMode="cover"
-                    />
-                  ) : null}
-                  <View style={styles.playOverlay} pointerEvents="none">
-                    <View style={styles.playCircle}>
-                      <Ionicons name="logo-youtube" size={22} color="#FF0000" />
-                    </View>
-                  </View>
-                </LinearGradient>
-              </SmoothPressable>
-
-              <Text style={styles.listCaption} numberOfLines={2}>
-                {item.caption}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
+      <BackButton onPress={goBack} />
+      <FlatList
+        data={ISLAMIC_SHORTS}
+        keyExtractor={(item) => String(item.id)}
+        numColumns={2}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews
+      />
     </SafeAreaView>
   );
 };
@@ -132,6 +189,11 @@ export default StoriesScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F6F7FB" },
+  listContent: { paddingBottom: 40 },
+  columnWrapper: {
+    justifyContent: "space-between",
+    paddingHorizontal: GRID_PAD,
+  },
   header: {
     paddingTop: 70,
     paddingBottom: 36,
@@ -158,14 +220,7 @@ const styles = StyleSheet.create({
     color: "#35158B",
     marginTop: 24,
     marginLeft: 20,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    paddingHorizontal: GRID_PAD,
-    paddingTop: 14,
-    paddingBottom: 40,
+    marginBottom: 14,
   },
   cardCol: {
     width: CARD_W,
@@ -195,7 +250,7 @@ const styles = StyleSheet.create({
     height: CARD_H,
   },
   playOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.18)",

@@ -17,6 +17,8 @@ import GradCardDecor from "./GradCardDecor";
 import HeaderSpark from "./HeaderSparkStar";
 import { DAILY_SUNNAHS, DailySunnah } from "../data/dailySunnahs";
 import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
+import { claimReward, todayKeyKarachi } from "../services/rewardsService";
+import { playUiSound } from "../services/soundService";
 import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 
 type Props = { goBack: () => void };
@@ -25,6 +27,8 @@ type LangMode = "ur" | "en";
 const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
   const [selected, setSelected] = useState<DailySunnah | null>(null);
   const [lang, setLang] = useState<LangMode>("en");
+  const [sunnahClaimed, setSunnahClaimed] = useState(false);
+  const [sunnahClaiming, setSunnahClaiming] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -36,6 +40,8 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
     stopSpeaking();
     setLang("en");
     setSelected(null);
+    setSunnahClaimed(false);
+    setSunnahClaiming(false);
   }, []);
 
   useFeatureBackHandler(
@@ -141,6 +147,48 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
             <Text style={isUrdu ? styles.bodyUr : styles.bodyEn}>
               {isUrdu ? selected.tipUrdu : selected.tipEn}
             </Text>
+
+            <SmoothPressable
+              radius={18}
+              onPress={async () => {
+                if (sunnahClaimed || sunnahClaiming) {
+                  return;
+                }
+                setSunnahClaiming(true);
+                try {
+                  const result = await claimReward(
+                    "sunnah",
+                    `${selected.id}:${todayKeyKarachi()}`,
+                  );
+                  setSunnahClaimed(true);
+                  if (!result.alreadyClaimed && result.awarded > 0) {
+                    playUiSound("achievement");
+                  }
+                } catch {
+                  // keep the screen usable if the claim request fails
+                } finally {
+                  setSunnahClaiming(false);
+                }
+              }}
+              style={[
+                styles.collectBtn,
+                sunnahClaimed && styles.collectBtnDone,
+              ]}
+            >
+              <Text style={styles.collectBtnText}>
+                {sunnahClaimed
+                  ? isUrdu
+                    ? "آج جمع ہو گیا ✓"
+                    : "Collected today ✓"
+                  : sunnahClaiming
+                    ? isUrdu
+                      ? "جمع ہو رہا ہے…"
+                      : "Collecting…"
+                    : isUrdu
+                      ? "میں نے یہ عمل کیا · +5 سکے"
+                      : "I practiced this · +5 coins"}
+              </Text>
+            </SmoothPressable>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -173,6 +221,7 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
               radius={20}
               style={styles.cardWrapper}
               onPress={() => {
+                playUiSound("cardOpen");
                 setLang("en");
                 setSelected(item);
               }}
@@ -399,5 +448,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
     writingDirection: "rtl",
+  },
+  collectBtn: {
+    marginTop: 22,
+    backgroundColor: "#6C4DF7",
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  collectBtnDone: {
+    backgroundColor: "#0F9B8E",
+  },
+  collectBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 15,
   },
 });
