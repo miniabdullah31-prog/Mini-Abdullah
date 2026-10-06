@@ -123,6 +123,7 @@ const StoriesScreen: React.FC<Props> = ({ goBack }) => {
                   preferLocal={apiFailed}
                   style={styles.cover}
                   resizeMode="cover"
+              
                   onLoad={onThumbLoaded}
                 />
               ) : null}

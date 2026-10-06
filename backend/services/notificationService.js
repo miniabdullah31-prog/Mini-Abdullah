@@ -117,6 +117,44 @@ async function sendToTokens(tokens, payload) {
   };
 
   const response = await getMessaging().sendEachForMulticast(message);
+
+  const permanentErrorCodes = new Set([
+    "messaging/registration-token-not-registered",
+    "messaging/invalid-registration-token",
+  ]);
+
+  const deadTokens = [];
+  for (let i = 0; i < response.responses.length; i += 1) {
+    const entry = response.responses[i];
+    if (entry.success) continue;
+    const code = entry.error && entry.error.code;
+    if (!permanentErrorCodes.has(code)) continue;
+    const failedToken = tokens[i];
+    if (typeof failedToken === "string" && failedToken) {
+      deadTokens.push(failedToken);
+    }
+  }
+
+  if (deadTokens.length > 0) {
+    try {
+      await User.updateMany(
+        { "fcmTokens.token": { $in: deadTokens } },
+        { $pull: { fcmTokens: { token: { $in: deadTokens } } } },
+      );
+    } catch (_cleanupErr) {
+      // Keep send result intact; do not log token values.
+    }
+  }
+
+  if (response.successCount === 0) {
+    return {
+      success: false,
+      message: "All FCM deliveries failed",
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    };
+  }
+
   return {
     success: true,
     successCount: response.successCount,

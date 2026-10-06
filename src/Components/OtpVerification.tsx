@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -16,23 +16,108 @@ import {
   Platform,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import { upsertSavedAccount } from "../services/accountStore";
+import { resetChatMemoryCache } from "../services/chatHistoryStore";
 import { useFormScroll } from "../hooks/useFormScroll";
+
+export type OtpMode = "reset" | "signup";
 
 type Props = {
   email: string;
-  goToNewPassword: (otp: string) => void;
+  /** Default `reset` preserves Forgot Password → OTP → Reset Password. */
+  mode?: OtpMode;
+  /** Password-reset: after verify-otp success. */
+  goToNewPassword?: (otp: string) => void;
+  /** Signup: after verify-email + session save → gender/avatar setup. */
+  onSignupVerified?: () => void;
   goToLogin?: () => void;
+  /** Signup: return to Create Account to edit email after SMTP send failure. */
+  goBackToSignup?: () => void;
 };
 
 const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 60;
+const SMTP_SEND_FAILED_MESSAGE =
+  "We couldn't send the verification code to this email. Please check your email address and try again.";
 
-const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
+const OtpVerification: React.FC<Props> = ({
+  email,
+  mode = "reset",
+  goToNewPassword,
+  onSignupVerified,
+  goBackToSignup,
+}) => {
+  const isSignup = mode === "signup";
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendCooldownLeft, setResendCooldownLeft] = useState(0);
   const inputRefs = useRef<Array<TextInput | null>>([]);
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const { scrollRef, onCardLayout, registerField, scrollToField } =
     useFormScroll();
+
+  const clearCooldownTimer = () => {
+    if (cooldownIntervalRef.current) {
+      clearInterval(cooldownIntervalRef.current);
+      cooldownIntervalRef.current = null;
+    }
+  };
+
+  const startResendCooldown = () => {
+    if (!isSignup) {
+      return;
+    }
+    clearCooldownTimer();
+    setResendCooldownLeft(RESEND_COOLDOWN_SECONDS);
+    cooldownIntervalRef.current = setInterval(() => {
+      setResendCooldownLeft((prev) => {
+        if (prev <= 1) {
+          clearCooldownTimer();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearCooldownTimer();
+    };
+  }, []);
+
+  const persistSignupSession = async (data: {
+    token?: string;
+    refreshToken?: string;
+    user?: { id?: string; name?: string; email?: string };
+  }) => {
+    if (!data.token || !data.user?.email) {
+      Alert.alert("Error", "Verification response incomplete ❌");
+      return false;
+    }
+
+    const saved = await upsertSavedAccount({
+      id: String(data.user.id || data.user.email),
+      name: data.user.name || "User",
+      email: data.user.email,
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+
+    if (!saved.ok) {
+      Alert.alert(
+        "Limit reached",
+        "Max 2 IDs at a time. Delete one from Profile to add another.",
+      );
+      return false;
+    }
+
+    resetChatMemoryCache();
+    return true;
+  };
 
   const handleChange = (text: string, index: number) => {
     const digit = text.replace(/[^0-9]/g, "").slice(-1);
@@ -54,23 +139,55 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
     }
   };
 
+  const friendlySignupVerifyError = (message?: string) => {
+    const msg = String(message || "");
+    if (/expired/i.test(msg)) {
+      return {
+        title: "Code expired",
+        body: "This verification code has expired. Please tap Resend Code for a new one.",
+      };
+    }
+    return {
+      title: "Invalid code",
+      body: "That verification code is incorrect. Please check and try again.",
+    };
+  };
+
   const handleVerify = async () => {
+    if (loading || resending) {
+      return;
+    }
+
     const code = otp.join("");
 
     if (code.length !== OTP_LENGTH) {
-      Alert.alert("Error", "Please enter the full 6-digit OTP");
+      Alert.alert(
+        isSignup ? "Incomplete code" : "Error",
+        isSignup
+          ? "Please enter all 6 digits of the verification code."
+          : "Please enter the full 6-digit OTP",
+      );
       return;
     }
 
     if (!email) {
-      Alert.alert("Error", "Email missing. Please start from Forgot Password.");
+      Alert.alert(
+        "Error",
+        isSignup
+          ? "Email missing. Please start from Signup."
+          : "Email missing. Please start from Forgot Password.",
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+      const endpoint = isSignup
+        ? `${API_BASE_URL}/api/auth/verify-email`
+        : `${API_BASE_URL}/api/auth/verify-otp`;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp: code }),
@@ -79,7 +196,28 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
       const data = await res.json();
 
       if (data.success) {
-        goToNewPassword(code);
+        if (isSignup) {
+          try {
+            const ok = await persistSignupSession(data);
+            if (!ok) {
+              return;
+            }
+          } catch {
+            Alert.alert("Error", "Could not save login session ❌");
+            return;
+          }
+          Alert.alert(
+            "Email verified",
+            "Your email was verified successfully. Continue to set up your profile.",
+            [{ text: "Continue", onPress: () => onSignupVerified?.() }],
+          );
+        } else {
+          // Password-reset: never store a login token here.
+          goToNewPassword?.(code);
+        }
+      } else if (isSignup) {
+        const friendly = friendlySignupVerifyError(data.message);
+        Alert.alert(friendly.title, friendly.body);
       } else {
         Alert.alert("Error", data.message || "Invalid or expired OTP");
       }
@@ -98,11 +236,18 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
     if (!email || resending || loading) {
       return;
     }
+    if (isSignup && resendCooldownLeft > 0) {
+      return;
+    }
 
     setResending(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      const endpoint = isSignup
+        ? `${API_BASE_URL}/api/auth/resend-verification`
+        : `${API_BASE_URL}/api/auth/forgot-password`;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -113,25 +258,83 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
       if (data.success) {
         setOtp(Array(OTP_LENGTH).fill(""));
         inputRefs.current[0]?.focus();
-        Alert.alert(
-          "OTP resent",
-          data.devOtp
-            ? `DEV OTP: ${data.devOtp}`
-            : data.message || "If an account exists, a new OTP has been sent",
-        );
+
+        if (isSignup && data.alreadyVerified) {
+          Alert.alert(
+            "Already verified",
+            "Your email is already verified. Tap Verify to continue setup.",
+          );
+          return;
+        }
+
+        if (isSignup) {
+          startResendCooldown();
+          Alert.alert(
+            "Code sent",
+            data.devOtp
+              ? `A new verification code was sent.\n\nDEV OTP: ${data.devOtp}`
+              : "A new verification code was sent to your email.",
+          );
+        } else {
+          Alert.alert(
+            "OTP resent",
+            data.devOtp
+              ? `DEV OTP: ${data.devOtp}`
+              : data.message ||
+                  "If an account exists, a new OTP has been sent",
+          );
+        }
+      } else if (isSignup) {
+        const failMessage =
+          data?.code === "SMTP_SEND_FAILED"
+            ? SMTP_SEND_FAILED_MESSAGE
+            : data.message || SMTP_SEND_FAILED_MESSAGE;
+        Alert.alert("Could not send code", failMessage, [
+          ...(goBackToSignup
+            ? [
+                {
+                  text: "Edit email",
+                  onPress: () => goBackToSignup(),
+                },
+              ]
+            : []),
+          { text: "OK" },
+        ]);
       } else {
         Alert.alert("Error", data.message || "Could not resend OTP");
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      Alert.alert(
-        "Server Error",
-        `Could not connect to backend\n${API_BASE_URL}\n${detail}`,
-      );
+      if (isSignup) {
+        Alert.alert(
+          "Could not resend",
+          `We could not reach the server. Please check your connection and try again.\n\n${detail}`,
+        );
+      } else {
+        Alert.alert(
+          "Server Error",
+          `Could not connect to backend\n${API_BASE_URL}\n${detail}`,
+        );
+      }
     } finally {
       setResending(false);
     }
   };
+
+  const signupResendDisabled =
+    isSignup && (resending || loading || resendCooldownLeft > 0);
+  const resetResendDisabled = !isSignup && (resending || loading);
+  const resendDisabled = isSignup ? signupResendDisabled : resetResendDisabled;
+
+  const resendLabel = (() => {
+    if (resending) {
+      return "Sending…";
+    }
+    if (isSignup && resendCooldownLeft > 0) {
+      return `Resend Code (${resendCooldownLeft}s)`;
+    }
+    return isSignup ? "Resend Code" : "Resend";
+  })();
 
   return (
     <View style={styles.root}>
@@ -164,10 +367,14 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
                 style={styles.image}
               />
 
-              <Text style={styles.title}>Verify Account</Text>
+              <Text style={styles.title}>
+                {isSignup ? "Verify Your Email" : "Verify Account"}
+              </Text>
 
               <Text style={styles.description}>
-                Enter the 6-digit code sent to your email
+                {isSignup
+                  ? `Enter the 6-digit code sent to${email ? `\n${email}` : " your email"}`
+                  : "Enter the 6-digit code sent to your email"}
               </Text>
 
               <View
@@ -208,10 +415,10 @@ const OtpVerification: React.FC<Props> = ({ email, goToNewPassword }) => {
               <Text style={styles.resendText}>
                 Didn’t receive code?{" "}
                 <Text
-                  style={[styles.resend, resending && styles.resendDisabled]}
-                  onPress={handleResend}
+                  style={[styles.resend, resendDisabled && styles.resendDisabled]}
+                  onPress={resendDisabled ? undefined : handleResend}
                 >
-                  {resending ? "Sending…" : "Resend"}
+                  {resendLabel}
                 </Text>
               </Text>
             </View>

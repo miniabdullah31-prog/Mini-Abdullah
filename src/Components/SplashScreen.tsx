@@ -8,7 +8,7 @@ type SplashScreenProps = {
   onNavigate: (screen: number) => void;
 };
 
-const MIN_SPLASH_MS = 1000;
+const MIN_SPLASH_MS = 3000;
 
 const SplashScreen: React.FC<SplashScreenProps> = ({
   resolveNext,
@@ -57,7 +57,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({
         </View>
 
         <Text style={styles.title}>
-          Mini{"\n"}Abdullah
+          Mini
         </Text>
         <Text style={styles.abdullahUrdu}>عبداللہ</Text>
 

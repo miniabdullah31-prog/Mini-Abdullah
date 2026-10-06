@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "../config/api";
-import { getActiveAuthToken } from "./accountStore";
+import { authFetch, getValidAccessToken } from "./authSession";
 import { playUiSound } from "./soundService";
 
 export type RewardBalance = {
@@ -40,7 +40,7 @@ export function todayKeyKarachi(date = new Date()): string {
 }
 
 async function authHeaders(): Promise<HeadersInit> {
-  const token = await getActiveAuthToken();
+  const token = await getValidAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -51,7 +51,7 @@ async function authHeaders(): Promise<HeadersInit> {
 }
 
 export async function fetchRewardBalance(): Promise<RewardBalance> {
-  const res = await fetch(`${API_BASE_URL}/api/rewards/me`, {
+  const res = await authFetch(`${API_BASE_URL}/api/rewards/me`, {
     headers: await authHeaders(),
   });
   const data = await res.json();
@@ -69,7 +69,7 @@ export async function claimReward(
   source: RewardSource,
   sourceId: string,
 ): Promise<RewardClaimResult> {
-  const res = await fetch(`${API_BASE_URL}/api/rewards/claim`, {
+  const res = await authFetch(`${API_BASE_URL}/api/rewards/claim`, {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({ source, sourceId }),

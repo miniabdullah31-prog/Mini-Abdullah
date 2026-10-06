@@ -8,6 +8,8 @@ export type QuranWord = {
   dual: string;
   plural: string;
   note?: string;
+  /** Times this form (and Quranic orthography variants) appears in the bundled corpus. */
+  occurrences?: number;
 };
 
 /** High-frequency Quran vocabulary — offline list for Common Quran Words. */
@@ -22,6 +24,7 @@ export const QURAN_WORDS: QuranWord[] = [
     dual: "—",
     plural: "—",
     note: "The one true God. Not dual/plural.",
+    occurrences: 2699,
   },
   {
     id: 2,
@@ -32,6 +35,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "رَبّ",
     dual: "رَبَّانِ",
     plural: "أَرْبَاب",
+    occurrences: 128,
   },
   {
     id: 3,
@@ -42,6 +46,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "رَحْمَة",
     dual: "رَحْمَتَانِ",
     plural: "رَحَمَات",
+    occurrences: 65,
   },
   {
     id: 4,
@@ -52,6 +57,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "كِتَاب",
     dual: "كِتَابَانِ",
     plural: "كُتُب",
+    occurrences: 250,
   },
   {
     id: 5,
@@ -62,6 +68,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "نُور",
     dual: "نُورَانِ",
     plural: "أَنْوَار",
+    occurrences: 23,
   },
   {
     id: 6,
@@ -72,6 +79,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "إِيمَان",
     dual: "إِيمَانَانِ",
     plural: "—",
+    occurrences: 25,
   },
   {
     id: 7,
@@ -82,6 +90,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "صَلَاة",
     dual: "صَلَاتَانِ",
     plural: "صَلَوَات",
+    occurrences: 68,
   },
   {
     id: 8,
@@ -92,6 +101,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "قَلْب",
     dual: "قَلْبَانِ",
     plural: "قُلُوب",
+    occurrences: 3,
   },
   {
     id: 9,
@@ -102,6 +112,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "مَاء",
     dual: "مَاءَانِ",
     plural: "مِيَاه",
+    occurrences: 53,
   },
   {
     id: 10,
@@ -112,6 +123,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "أَرْض",
     dual: "أَرْضَانِ",
     plural: "أَرَاضِي",
+    occurrences: 451,
   },
   {
     id: 11,
@@ -122,6 +134,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "سَمَاء",
     dual: "سَمَاوَانِ",
     plural: "سَمَاوَات",
+    occurrences: 309,
   },
   {
     id: 12,
@@ -132,6 +145,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "يَوْم",
     dual: "يَوْمَانِ",
     plural: "أَيَّام",
+    occurrences: 336,
   },
   {
     id: 13,
@@ -142,6 +156,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "لَيْل",
     dual: "لَيْلَانِ",
     plural: "لَيَالِي",
+    occurrences: 73,
   },
   {
     id: 14,
@@ -152,6 +167,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "نَبِيّ",
     dual: "نَبِيَّانِ",
     plural: "أَنْبِيَاء",
+    occurrences: 41,
   },
   {
     id: 15,
@@ -162,6 +178,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "رَسُول",
     dual: "رَسُولَانِ",
     plural: "رُسُل",
+    occurrences: 111,
   },
   {
     id: 16,
@@ -172,6 +189,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "جَنَّة",
     dual: "جَنَّتَانِ",
     plural: "جَنَّات",
+    occurrences: 77,
   },
   {
     id: 17,
@@ -182,6 +200,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "نَار",
     dual: "نَارَانِ",
     plural: "نِيرَان",
+    occurrences: 125,
   },
   {
     id: 18,
@@ -192,6 +211,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "عِلْم",
     dual: "عِلْمَانِ",
     plural: "عُلُوم",
+    occurrences: 92,
   },
   {
     id: 19,
@@ -202,6 +222,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "حَقّ",
     dual: "حَقَّانِ",
     plural: "حُقُوق",
+    occurrences: 228,
   },
   {
     id: 20,
@@ -212,6 +233,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "صَبْر",
     dual: "صَبْرَانِ",
     plural: "—",
+    occurrences: 8,
   },
   {
     id: 21,
@@ -222,6 +244,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "شُكْر",
     dual: "شُكْرَانِ",
     plural: "—",
+    occurrences: 2,
   },
   {
     id: 22,
@@ -232,6 +255,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "سَلَام",
     dual: "سَلَامَانِ",
     plural: "—",
+    occurrences: 39,
   },
   {
     id: 23,
@@ -242,6 +266,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "مَسْجِد",
     dual: "مَسْجِدَانِ",
     plural: "مَسَاجِد",
+    occurrences: 19,
   },
   {
     id: 24,
@@ -252,6 +277,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "قُرْآن",
     dual: "—",
     plural: "—",
+    occurrences: 62,
   },
   {
     id: 25,
@@ -262,6 +288,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "مُسْلِم",
     dual: "مُسْلِمَانِ",
     plural: "مُسْلِمُون",
+    occurrences: 45,
   },
   {
     id: 26,
@@ -272,6 +299,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "حَلَال",
     dual: "حَلَالَانِ",
     plural: "—",
+    occurrences: 1,
   },
   {
     id: 27,
@@ -282,6 +310,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "حَرَام",
     dual: "حَرَامَانِ",
     plural: "—",
+    occurrences: 50,
   },
   {
     id: 28,
@@ -292,6 +321,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "تَوْبَة",
     dual: "تَوْبَتَانِ",
     plural: "تَوْبَات",
+    occurrences: 6,
   },
   {
     id: 29,
@@ -302,6 +332,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "زَكَاة",
     dual: "زَكَاتَانِ",
     plural: "—",
+    occurrences: 32,
   },
   {
     id: 30,
@@ -312,6 +343,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "صَوْم",
     dual: "صَوْمَانِ",
     plural: "أَصْوَام",
+    occurrences: 0,
   },
   {
     id: 31,
@@ -322,6 +354,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "حَجّ",
     dual: "حَجَّانِ",
     plural: "—",
+    occurrences: 11,
   },
   {
     id: 32,
@@ -332,6 +365,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "دُعَاء",
     dual: "دُعَاءَانِ",
     plural: "أَدْعِيَة",
+    occurrences: 17,
   },
   {
     id: 33,
@@ -342,6 +376,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "أُمّ",
     dual: "أُمَّانِ",
     plural: "أُمَّهَات",
+    occurrences: 130,
   },
   {
     id: 34,
@@ -352,6 +387,7 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "أَب",
     dual: "أَبَوَانِ",
     plural: "آبَاء",
+    occurrences: 0,
   },
   {
     id: 35,
@@ -362,5 +398,6 @@ export const QURAN_WORDS: QuranWord[] = [
     singular: "وَلَد",
     dual: "وَلَدَانِ",
     plural: "أَوْلَاد",
+    occurrences: 17,
   },
 ];

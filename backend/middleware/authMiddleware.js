@@ -1,7 +1,9 @@
 const jwt = require("jsonwebtoken");
+const { ACCESS_TYP, accessSecret } = require("../services/tokenService");
 
 /**
- * Verify JWT from Authorization: Bearer <token> and attach req.user.
+ * Verify access JWT from Authorization: Bearer <token> and attach req.user.
+ * Refresh tokens (typ=refresh) are rejected.
  */
 function authMiddleware(req, res, next) {
   try {
@@ -22,7 +24,8 @@ function authMiddleware(req, res, next) {
       });
     }
 
-    if (!process.env.JWT_SECRET) {
+    const secret = accessSecret();
+    if (!secret) {
       console.log("JWT_SECRET missing — cannot verify tokens");
       return res.status(500).json({
         success: false,
@@ -30,7 +33,22 @@ function authMiddleware(req, res, next) {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, secret);
+
+    if (decoded.typ === "refresh") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token",
+      });
+    }
+
+    // typ missing = legacy access tokens issued before refresh-token rollout
+    if (decoded.typ && decoded.typ !== ACCESS_TYP) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token",
+      });
+    }
 
     req.user = {
       id: decoded.id,
@@ -42,6 +60,7 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
+      code: "TOKEN_EXPIRED",
     });
   }
 }

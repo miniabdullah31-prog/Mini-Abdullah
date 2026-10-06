@@ -1,0 +1,49 @@
+Mini Abdullah screenshot capture report
+Time: 2026-09-29T06:05:26.4301230-07:00
+Device was R5CRC0A5K7R (SM-G990E); currently disconnected
+OutDir: D:\FYP\MINIABDULLAH\documentation\screenshots
+Source: installed com.miniabdullah only (no app source changes)
+
+SUCCESS (15/35):
+  OK  12_home.png - Home
+  OK  13_quran_hub.png - Quran Hub
+  OK  14_noorani_qaida.png - Noorani Qaida
+  OK  15_tajweed.png - Tajweed
+  OK  16_read_quran_para.png - Read Quran (Para)
+  OK  17_read_quran_surah.png - Read Quran (Surahs)
+  OK  18_ayah_recitation.png - Ayah / Surah recitation (Al-Fatihah)
+  OK  19_quran_words.png - Common Quran Words
+  OK  20_daily_surahs.png - Daily Surahs
+  OK  21_salah_list.png - Salah list
+  OK  22_salah_detail.png - Salah detail (Takbeer)
+  OK  23_daily_sunnah.png - Daily Sunnah
+  OK  24_islamic_shorts.png - Islamic Shorts
+  OK  25_duas_grid.png - Duas grid
+  OK  26_dua_detail.png - Dua detail (Morning Dua)
+
+NOT CAPTURED (20):
+  MISSING 01_splash.png - Splash | Cold-start hit Metro loading banner (discarded); USB lost before clean splash retry
+  MISSING 02_onboarding.png - Onboarding | Already completed on device; not shown without clearing app data
+  MISSING 03_welcome.png - Welcome | USB disconnect before logout/auth path
+  MISSING 04_signup.png - Signup | USB disconnect before auth path
+  MISSING 05_gender.png - Gender selection | Requires completed signup (not entered)
+  MISSING 06_avatar.png - Avatar selection | Requires completed signup (not entered)
+  MISSING 07_success.png - Signup success | Requires completed signup/avatar (not entered)
+  MISSING 08_login.png - Login | USB disconnect before auth path
+  MISSING 09_forgot_password.png - Forgot Password | USB disconnect before auth path
+  MISSING 10_otp.png - OTP Verification | Needs Forgot Password + valid OTP request
+  MISSING 11_reset_password.png - Reset Password | Requires verified OTP
+  MISSING 27_names_of_allah.png - Names of Allah | USB disconnect while scrolling Home features
+  MISSING 28_games_hub.png - Games Hub | USB disconnect while scrolling Home features
+  MISSING 29_game_play.png - Game play / level select | Depends on Games hub; USB disconnect
+  MISSING 30_chatbot.png - Chatbot | USB disconnect while scrolling Home features
+  MISSING 31_talking_abdullah.png - Talking Abdullah | USB disconnect
+  MISSING 32_tutor_hub.png - Tutor hub | USB disconnect
+  MISSING 33_tutor_booking.png - Tutor booking | USB disconnect
+  MISSING 34_tutor_appointments.png - Tutor appointments | USB disconnect
+  MISSING 35_profile.png - Profile | USB disconnect
+
+Quality notes:
+  - 12_home.png has Rate Mini Abdullah modal overlay
+  - Some screens include RN yellow debugger warning banner (dev build)
+  - ADB lost mid-run; reconnect polls found no device

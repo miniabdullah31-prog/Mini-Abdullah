@@ -260,7 +260,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
             {showMeaning && (
               <View style={styles.meaningBox}>
                 <Text style={styles.sectionLabel}>
-                  {lang === "ur" ? "ترجمہ و تفسیر" : "Translation & Tafseer"}
+                  {lang === "ur" ? "ترجمہ و وضاحت" : "Translation & Explanation"}
                 </Text>
                 <Text
                   style={[
@@ -281,7 +281,24 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
                 </Text>
               </View>
             )}
+            
+         {/*image section*/}
+ {selectedDua.image ? (
+  <>
+    <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Illustration</Text>
 
+    <View style={styles.duaImageCard}>
+      <Image
+        source={selectedDua.image}
+        style={styles.duaImage}
+        resizeMode="cover"
+      />
+    </View>
+  </>
+) : null}
+
+
+        {/*video section*/}
             <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Video</Text>
             {selectedDua.video ? (
               selectedDua.id === PARENTS_DUA_ID &&
@@ -345,10 +362,10 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
             ) : (
               <View style={styles.comingSoonCard}>
                 <Ionicons name="videocam-outline" size={28} color="#9A8BC7" />
-                <Text style={styles.comingSoonTitle}>Video coming soon</Text>
-                <Text style={styles.comingSoonSub}>
-                  AI lesson for this dua will appear here.
-                </Text>
+                <Text style={styles.comingSoonTitle}>Video will be uploaded soon</Text>
+<Text style={styles.comingSoonSub}>
+  Video lesson for this dua will be available soon.
+</Text>
               </View>
             )}
           </View>
@@ -365,7 +382,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
                   key={`parents-player-${selectedDua.id}-h264`}
                   ref={videoRef}
                   source={(() => {
-                    const source = resolveVideoSource(selectedDua.video);
+                    const source = resolveVideoSource(selectedDua.video!);
                     if (__DEV__) {
                       console.log(
                         "[ParentsDuaVideo] source.uri=",
@@ -481,7 +498,7 @@ const DuasScreen: React.FC<Props> = ({ goBack }) => {
               <Video
                 key={`dua-player-${selectedDua.id}`}
                 ref={videoRef}
-                source={resolveVideoSource(selectedDua.video)}
+                source={resolveVideoSource(selectedDua.video!)}
                 style={{
                   width: SCREEN_WIDTH,
                   height: VIDEO_PLAYER_HEIGHT,
@@ -1017,4 +1034,17 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: "#fff",
   },
+  duaImageCard: {
+  marginTop: 10,
+  borderRadius: 18,
+  overflow: "hidden",
+  backgroundColor: "#F5F2FF",
+  elevation: 3,
+},
+
+duaImage: {
+  width: "100%",
+  height: 220,
+},
 });
+

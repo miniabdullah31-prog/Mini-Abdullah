@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import BackButton from "./BackButton";
 import GradCardDecor from "./GradCardDecor";
 import SmoothPressable from "./SmoothPressable";
 import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
+import { speakArabicFemale, stopSpeaking } from "../services/quranTts";
 
 type Props = {
   goBack: () => void;
@@ -148,7 +149,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
     {
       id: 9,
       title: "Durood Ibrahim",
-      arabic: "اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ",
+      arabic:
+        "اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ\n\nاللَّهُمَّ بَارِكْ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ",
       detail: "Recite Durood Ibrahim to send blessings upon Prophet Muhammad (PBUH).",
       detailUrdu: "نبی کریم ﷺ پر درود و سلام بھیجنے کے لیے درود ابراہیمی پڑھیں۔",
       tafseerEng: "Sending Durood unlocks acceptance of prayers and honors the Messenger of Allah.",
@@ -177,9 +179,20 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
     item.title.toLowerCase().includes(search.toLowerCase())
   );
 
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  const playStepArabic = (arabic: string) => {
+    speakArabicFemale(arabic);
+  };
+
   useFeatureBackHandler(
     useCallback(() => {
       if (selectedStep) {
+        stopSpeaking();
         setSelectedStep(null);
         return true;
       }
@@ -193,7 +206,12 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-        <BackButton onPress={() => setSelectedStep(null)} />
+        <BackButton
+          onPress={() => {
+            stopSpeaking();
+            setSelectedStep(null);
+          }}
+        />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           {/* HEADER */}
           <ImageBackground
@@ -206,7 +224,17 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
           {/* DETAIL CONTENT CARD */}
           <View style={styles.detailCard}>
             <Text style={styles.sectionHeading}>Arabic Text 🕋</Text>
-            <Text style={styles.arabic}>{selectedStep.arabic}</Text>
+            <View style={styles.arabicRow}>
+              <TouchableOpacity
+                style={styles.arabicAudioBtn}
+                onPress={() => playStepArabic(selectedStep.arabic)}
+                accessibilityRole="button"
+                accessibilityLabel="Play Arabic recitation"
+              >
+                <Ionicons name="volume-high" size={18} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.arabic}>{selectedStep.arabic}</Text>
+            </View>
 
             <Text style={styles.sectionHeading}>Meaning & Details 🌍</Text>
             <View style={styles.translationRow}>
@@ -215,7 +243,10 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
             </View>
 
             {/* AUDIO RECITATION BUTTON */}
-            <TouchableOpacity style={styles.audioButton}>
+            <TouchableOpacity
+              style={styles.audioButton}
+              onPress={() => playStepArabic(selectedStep.arabic)}
+            >
               <Ionicons name="volume-high" size={24} color="#fff" />
               <Text style={styles.audioText}>Play Step Audio</Text>
             </TouchableOpacity>
@@ -237,7 +268,12 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#5B33C4" />
-      <BackButton onPress={goBack} />
+      <BackButton
+        onPress={() => {
+          stopSpeaking();
+          goBack();
+        }}
+      />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <ImageBackground
@@ -264,6 +300,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
           </View>
         </ImageBackground>
 
+        <Text style={styles.stepsIntro}>Below are steps to perform salah</Text>
+
         {/* SALAH STEPS LIST */}
         <View style={styles.cardsContainer}>
           {filteredSteps.map((item) => (
@@ -284,9 +322,8 @@ const SalahScreen: React.FC<Props> = ({ goBack }) => {
                   <Ionicons name={item.icon} size={22} color="#fff" />
                 </View>
                 <View style={styles.cardTextCol}>
-                  <Text style={styles.cardTitle}>
-                    {item.id}. {item.title}
-                  </Text>
+                  <Text style={styles.cardTitle}>Step {item.id}</Text>
+                  <Text style={styles.cardSubtitle}>{item.title}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFFCC" />
               </LinearGradient>
@@ -347,8 +384,17 @@ const styles = StyleSheet.create({
   },
   cardsContainer: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: 8,
     paddingBottom: 40,
+  },
+  stepsIntro: {
+    marginTop: 18,
+    marginHorizontal: 24,
+    marginBottom: 6,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#4B2AA8",
+    textAlign: "center",
   },
   cardWrapper: {
     marginBottom: 12,
@@ -384,6 +430,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "800",
   },
+  cardSubtitle: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 3,
+  },
   detailCard: {
     margin: 20,
     backgroundColor: "#fff",
@@ -398,11 +450,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 22,
   },
+  arabicRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 15,
+  },
+  arabicAudioBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#5B33C4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+  },
   arabic: {
+    flex: 1,
     fontSize: 32,
     textAlign: "right",
     lineHeight: 54,
-    marginBottom: 15,
     color: "#222",
     fontWeight: "700",
   },

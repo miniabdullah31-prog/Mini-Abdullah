@@ -1,7 +1,8 @@
 /** Pending screen navigation from notification tap (cold start / background). */
 export type NotificationNavTarget = {
   screen: number;
-  type?: "word" | "dua" | "quest";
+  type?: "word" | "dua" | "quest" | "tutor";
+  appointmentId?: string;
 };
 
 let pendingTarget: NotificationNavTarget | null = null;
@@ -32,7 +33,14 @@ export function parseNotificationData(
 
   const type = data.type as NotificationNavTarget["type"] | undefined;
   const screenNum = Number.parseInt(String(data.screen || ""), 10);
+  const appointmentId =
+    typeof data.appointmentId === "string" && data.appointmentId.trim()
+      ? data.appointmentId.trim()
+      : undefined;
 
+  if (type === "tutor") {
+    return { screen: 21, type: "tutor", appointmentId };
+  }
   if (type === "word") {
     return { screen: 10, type: "word" };
   }
@@ -42,8 +50,12 @@ export function parseNotificationData(
   if (type === "quest") {
     return { screen: 18, type: "quest" };
   }
-  if (Number.isFinite(screenNum) && screenNum >= 10 && screenNum <= 20) {
-    return { screen: screenNum, type };
+  if (Number.isFinite(screenNum) && screenNum >= 10 && screenNum <= 21) {
+    return {
+      screen: screenNum,
+      type: screenNum === 21 ? "tutor" : type,
+      appointmentId: screenNum === 21 ? appointmentId : undefined,
+    };
   }
   return null;
 }

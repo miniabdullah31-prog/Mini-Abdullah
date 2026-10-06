@@ -65,30 +65,41 @@ function toPublicTutor(doc) {
 }
 
 function zoomLinkFromTutor(tutor) {
-  const fromDoc = String(tutor.defaultZoomLink || "").trim();
-  if (fromDoc) return fromDoc;
-  if (tutor.slug === "quran-tutor") {
-    return String(process.env.TUTOR_QURAN_ZOOM_LINK || "").trim();
+  const fromDoc = String(tutor?.defaultZoomLink || "").trim();
+  if (fromDoc && !/^YOUR[_-]/i.test(fromDoc) && !/^<.*>$/.test(fromDoc)) {
+    return fromDoc;
   }
-  if (tutor.slug === "islamic-studies-teacher") {
-    return String(process.env.TUTOR_ISLAMIC_ZOOM_LINK || "").trim();
+  const slug = tutor?.slug;
+  let fromEnv = "";
+  if (slug === "quran-tutor") {
+    fromEnv = String(process.env.TUTOR_QURAN_ZOOM_LINK || "").trim();
+  } else if (
+    slug === "islamic-studies-teacher" ||
+    slug === "quran-translation-tafseer-tutor" ||
+    slug === "islamic-life-guidance-tutor"
+  ) {
+    fromEnv = String(process.env.TUTOR_ISLAMIC_ZOOM_LINK || "").trim();
   }
-  return "";
+  if (!fromEnv || /^YOUR[_-]/i.test(fromEnv) || /^<.*>$/.test(fromEnv)) {
+    return "";
+  }
+  return fromEnv;
 }
 
 const SEED_TUTORS = [
   {
     slug: "quran-tutor",
-    name: "Quran Tutor",
-    role: "Hafiz-e-Quran",
+    name: "Quran Reading Tutor",
+    role: "Quran Reading / Nazra",
     gender: "male",
     specializations: [
       "Quran Reading",
-      "Quran Memorization",
+      "Nazra",
+      "Quran Recitation",
       "Basic Quran Learning",
     ],
-    bio: "Online Quran classes for children — reading, memorization, and the first steps of learning the Quran. Sessions are on Zoom.",
-    subject: "Quran",
+    bio: "Learn to read the Quran correctly with a child-friendly Nazra tutor. Improve recitation and build strong Quran reading habits online.",
+    subject: "Quran Reading",
     isActive: true,
     weeklyAvailability: [0, 1, 2, 3, 4, 6].map((dayOfWeek) => ({
       dayOfWeek,
@@ -103,18 +114,18 @@ const SEED_TUTORS = [
     defaultZoomLink: "",
   },
   {
-    slug: "islamic-studies-teacher",
-    name: "Islamic Studies Teacher",
-    role: "Islamic Studies Teacher",
+    slug: "quran-translation-tafseer-tutor",
+    name: "Quran Translation & Tafseer Tutor",
+    role: "Translation & Tafseer",
     gender: "female",
     specializations: [
       "Quran Translation",
       "Tafseer",
-      "Islamic Studies",
-      "Islamic Teachings",
+      "Quran Meanings",
+      "Child-friendly Tafseer",
     ],
-    bio: "Online Islamic studies for children — translation, tafseer, and everyday Islamic teachings. Sessions are on Zoom.",
-    subject: "Islamic Studies",
+    bio: "Understand Quran meanings with simple translation and child-friendly Tafseer. Learn what Allah is teaching us in a clear, gentle way.",
+    subject: "Quran Translation & Tafseer",
     isActive: true,
     weeklyAvailability: [0, 1, 2, 3, 4, 6].map((dayOfWeek) => ({
       dayOfWeek,
@@ -128,12 +139,52 @@ const SEED_TUTORS = [
     unavailableDates: [],
     defaultZoomLink: "",
   },
+  {
+    slug: "islamic-life-guidance-tutor",
+    name: "Islamic Life & Guidance Tutor",
+    role: "Islamic Life Guidance",
+    gender: "female",
+    specializations: [
+      "Islamic Habits",
+      "Good Character",
+      "Life Skills",
+      "Deen & Dunia Guidance",
+    ],
+    bio: "Learn how to live a successful life according to Islam — good habits, character, responsibilities, and practical guidance for religious and everyday matters.",
+    subject: "Islamic Life & Guidance",
+    isActive: true,
+    weeklyAvailability: [0, 1, 2, 3, 4, 6].map((dayOfWeek) => ({
+      dayOfWeek,
+      slots: [
+        { startTime: "14:00", endTime: "14:30" },
+        { startTime: "14:30", endTime: "15:00" },
+        { startTime: "17:00", endTime: "17:30" },
+        { startTime: "17:30", endTime: "18:00" },
+      ],
+    })),
+    unavailableDates: [],
+    defaultZoomLink: "",
+  },
 ];
 
 async function seedTutorsIfNeeded() {
   for (const seed of SEED_TUTORS) {
     const existing = await Tutor.findOne({ slug: seed.slug });
     if (existing) {
+      existing.name = seed.name;
+      existing.role = seed.role;
+      existing.gender = seed.gender;
+      existing.specializations = seed.specializations;
+      existing.bio = seed.bio;
+      existing.subject = seed.subject;
+      existing.isActive = true;
+      if (
+        !existing.weeklyAvailability ||
+        existing.weeklyAvailability.length === 0
+      ) {
+        existing.weeklyAvailability = seed.weeklyAvailability;
+      }
+      await existing.save();
       continue;
     }
     await Tutor.create({
@@ -142,6 +193,12 @@ async function seedTutorsIfNeeded() {
     });
     console.log(`[tutors] seeded ${seed.slug}`);
   }
+
+  // Keep the older Islamic Studies category inactive so hub shows exactly 3 options.
+  await Tutor.updateMany(
+    { slug: "islamic-studies-teacher" },
+    { $set: { isActive: false } },
+  );
 }
 
 async function listActiveTutors() {

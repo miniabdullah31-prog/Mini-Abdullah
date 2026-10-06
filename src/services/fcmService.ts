@@ -4,16 +4,8 @@
  * Local prayer reminders stay in notificationService.ts (react-native-notify-kit).
  * Requires android/app/google-services.json and backend Firebase Admin credentials.
  */
-import "@react-native-firebase/app";
 import { PermissionsAndroid, Platform } from "react-native";
 import axios from "axios";
-import type { Messaging, RemoteMessage } from "@react-native-firebase/messaging";
-import { getMessaging } from "@react-native-firebase/messaging";
-import type {
-  AndroidImportance,
-  EventType,
-  ModuleWithStatics,
-} from "react-native-notify-kit";
 import { API_BASE_URL } from "../config/api";
 import { getActiveAuthToken } from "./accountStore";
 import {
@@ -21,102 +13,41 @@ import {
   queueNotificationNavigation,
 } from "./notificationNavigation";
 
-const FCM_CHANNEL_ID = "miniabdullah_fcm_v2";
+const FCM_CHANNEL_ID = "miniabdullah_fcm";
 const FCM_CHANNEL_NAME = "Mini Abdullah Learning";
 
-type NotifyKitRuntimeEnums = {
-  EventType: typeof EventType;
-  AndroidImportance: typeof AndroidImportance;
-};
+type MessagingModule = typeof import("@react-native-firebase/messaging").default;
 
-let notifeeMod: ModuleWithStatics | null = null;
-let notifyKitEnums: NotifyKitRuntimeEnums | null = null;
-let notifyKitLoadFailed = false;
-
-function logFcmError(context: string, error: unknown): void {
-  const msg = error instanceof Error ? error.message : String(error);
-  console.warn(`[FCM] ERROR: ${context} — ${msg}`);
-}
-
-function loadNotifyKit(): { notifee: ModuleWithStatics; enums: NotifyKitRuntimeEnums } | null {
-  if (notifyKitLoadFailed) return null;
-  if (notifeeMod && notifyKitEnums) {
-    return { notifee: notifeeMod, enums: notifyKitEnums };
-  }
-  try {
-    const mod = require("react-native-notify-kit") as {
-      default?: ModuleWithStatics;
-      EventType: typeof EventType;
-      AndroidImportance: typeof AndroidImportance;
-    };
-    const api = (mod.default ?? mod) as ModuleWithStatics;
-    const enums: NotifyKitRuntimeEnums = {
-      EventType: mod.EventType,
-      AndroidImportance: mod.AndroidImportance,
-    };
-    notifeeMod = api;
-    notifyKitEnums = enums;
-    return { notifee: api, enums };
-  } catch (e) {
-    notifyKitLoadFailed = true;
-    logFcmError("notify-kit load", e);
-    return null;
-  }
-}
-
-let messagingInstance: Messaging | null = null;
+let messagingMod: MessagingModule | null = null;
+let messagingLoadFailed = false;
 let listenersAttached = false;
 let unsubscribeForeground: (() => void) | null = null;
 let unsubscribeOpened: (() => void) | null = null;
 let unsubscribeTokenRefresh: (() => void) | null = null;
 
-function loadMessaging(): Messaging | null {
-  if (messagingInstance) {
-    return messagingInstance;
-  }
+function loadMessaging(): MessagingModule | null {
+  if (messagingLoadFailed) return null;
+  if (messagingMod) return messagingMod;
   try {
-    console.log("[FCM] module loading");
-    messagingInstance = getMessaging();
-    console.log("[FCM] module loaded successfully");
-    return messagingInstance;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    messagingMod = require("@react-native-firebase/messaging").default;
+    return messagingMod;
   } catch (e) {
-    // Do not latch failures — index.js may run before native Firebase is ready;
-    // initFcmForAuthenticatedUser() retries when the user reaches Home.
-    logFcmError("module load", e);
+    messagingLoadFailed = true;
+    console.warn("[FCM] Messaging module unavailable:", e);
     return null;
   }
 }
 
-function logPlatformContext(): void {
-  console.log(
-    `[FCM] platform=${Platform.OS} apiLevel=${androidApiLevel()}`,
-  );
-}
-
-function androidApiLevel(): number {
-  if (typeof Platform.Version === "number") return Platform.Version;
-  const parsed = Number.parseInt(String(Platform.Version), 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 async function ensureAndroidNotificationPermission(): Promise<boolean> {
+  console.log("[FCM] Checking notification permission...");
   if (Platform.OS !== "android") return true;
   try {
-    if (androidApiLevel() < 33) {
-      console.log("[FCM] Checking notification permission... (not required below API 33)");
-      return true;
-    }
-
-    console.log("[FCM] Checking notification permission...");
+    if (Platform.Version < 33) return true;
     const granted = await PermissionsAndroid.check(
       PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
     );
-    if (granted) {
-      console.log("[FCM] permission already granted");
-      return true;
-    }
-
-    console.log("[FCM] requesting notification permission");
+    if (granted) return true;
     const result = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
       {
@@ -127,29 +58,29 @@ async function ensureAndroidNotificationPermission(): Promise<boolean> {
         buttonNegative: "Not now",
       },
     );
-    const allowed = result === PermissionsAndroid.RESULTS.GRANTED;
-    console.log("[FCM] permission result:", allowed ? "granted" : result);
-    return allowed;
-  } catch (e) {
-    logFcmError("notification permission", e);
+    return (
+      result === PermissionsAndroid.RESULTS.GRANTED || result === "granted"
+    );
+  } catch {
+   
     return false;
   }
 }
 
 async function ensureFcmChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
-  const loaded = loadNotifyKit();
-  if (!loaded) return;
   try {
-    await loaded.notifee.createChannel({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("react-native-notify-kit");
+    const notifee = mod.default || mod;
+    await notifee.createChannel({
       id: FCM_CHANNEL_ID,
       name: FCM_CHANNEL_NAME,
-      importance: loaded.enums.AndroidImportance.HIGH,
+      importance: mod.AndroidImportance?.HIGH ?? 4,
       sound: "default",
-      vibration: true,
     });
   } catch (e) {
-    logFcmError("channel create", e);
+    console.warn("[FCM] Channel create failed:", e);
   }
 }
 
@@ -158,28 +89,22 @@ async function displayForegroundNotification(
   body: string,
   data?: Record<string, string>,
 ): Promise<void> {
-  const loaded = loadNotifyKit();
-  if (!loaded) return;
   try {
-    await loaded.notifee.displayNotification({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("react-native-notify-kit");
+    const notifee = mod.default || mod;
+    await notifee.displayNotification({
       title,
       body,
       data: data || {},
       android: {
         channelId: FCM_CHANNEL_ID,
         pressAction: { id: "default" },
-        smallIcon: "ic_stat_miniabdullah",
-        largeIcon: "ic_notification_logo",
-        color: "#7B5CFA",
-        circularLargeIcon: true,
-        // Match channel + FCM android.notification.sound so foreground also plays audio
-        sound: "default",
-        importance: loaded.enums.AndroidImportance.HIGH,
+        smallIcon: "ic_launcher",
       },
     });
-    console.log("[FCM] notification displayed");
   } catch (e) {
-    logFcmError("foreground display", e);
+    console.warn("[FCM] Foreground display failed:", e);
   }
 }
 
@@ -189,16 +114,10 @@ export async function getFcmToken(): Promise<string | null> {
 
   try {
     await ensureAndroidNotificationPermission();
-    console.log("[FCM] getting FCM token");
-    const token = await messaging.getToken();
-    if (token?.trim()) {
-      console.log("[FCM] FCM token received");
-      return token.trim();
-    }
-    logFcmError("getToken", "empty token");
-    return null;
+    const token = await messaging().getToken();
+    return token?.trim() || null;
   } catch (e) {
-    logFcmError("getToken", e);
+    console.warn("[FCM] getToken failed:", e);
     return null;
   }
 }
@@ -209,22 +128,13 @@ export async function registerFcmTokenWithBackend(
 ): Promise<boolean> {
   try {
     const authToken = await getActiveAuthToken();
-    if (!authToken) {
-      logFcmError("register-token", "no auth token — user not logged in");
-      return false;
-    }
+    if (!authToken) return false;
 
     const fcmToken = token ?? (await getFcmToken());
-    if (!fcmToken) {
-      logFcmError("register-token", "no FCM token available");
-      return false;
-    }
+    if (!fcmToken) return false;
 
-    const registerUrl = `${baseURL}/api/notifications/register-token`;
-    console.log("[FCM] backend registration started");
-    console.log(`[FCM] backend URL: ${registerUrl}`);
     const response = await axios.post(
-      registerUrl,
+      `${baseURL}/api/notifications/register-token`,
       { token: fcmToken, platform: Platform.OS },
       {
         timeout: 15000,
@@ -235,26 +145,9 @@ export async function registerFcmTokenWithBackend(
       },
     );
 
-    if (response.data?.success) {
-      console.log("[FCM] backend token registration successful");
-      return true;
-    }
-    logFcmError(
-      "register-token",
-      `backend rejected registration: ${response.data?.message || "not successful"}`,
-    );
-    return false;
+    return !!response.data?.success;
   } catch (e) {
-    if (axios.isAxiosError(e)) {
-      const status = e.response?.status;
-      const message = e.response?.data?.message || e.message;
-      logFcmError(
-        "register-token",
-        status ? `HTTP ${status} — ${message}` : message,
-      );
-    } else {
-      logFcmError("register-token", e);
-    }
+    console.warn("[FCM] register-token failed:", e);
     return false;
   }
 }
@@ -269,55 +162,34 @@ function handleRemoteMessageOpen(
 }
 
 function attachMessagingListeners(): void {
-  if (listenersAttached) {
-    console.log("[FCM] listeners already attached — skipping");
-    return;
-  }
+  if (listenersAttached) return;
   const messaging = loadMessaging();
-  if (!messaging) {
-    logFcmError("attach listeners", "messaging module unavailable");
-    return;
-  }
+  if (!messaging) return;
 
   listenersAttached = true;
-  console.log("[FCM] attaching messaging listeners");
 
-  unsubscribeForeground = messaging.onMessage(async (remoteMessage: RemoteMessage) => {
-    console.log("[FCM] foreground message received");
+  unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
     const title =
       remoteMessage.notification?.title ||
-      (typeof remoteMessage.data?.title === "string"
-        ? remoteMessage.data.title
-        : undefined) ||
+      remoteMessage.data?.title ||
       "Mini Abdullah";
     const body =
       remoteMessage.notification?.body ||
-      (typeof remoteMessage.data?.body === "string"
-        ? remoteMessage.data.body
-        : undefined) ||
+      remoteMessage.data?.body ||
       "New learning reminder!";
-    const data = Object.fromEntries(
-      Object.entries(remoteMessage.data || {}).filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string",
-      ),
-    );
+    const data = (remoteMessage.data || {}) as Record<string, string>;
     await displayForegroundNotification(title, body, data);
   });
 
-  unsubscribeOpened = messaging.onNotificationOpenedApp(
-    (remoteMessage: RemoteMessage) => {
-      handleRemoteMessageOpen(
-        remoteMessage?.data as Record<string, string | undefined>,
-      );
-    },
-  );
-
-  unsubscribeTokenRefresh = messaging.onTokenRefresh(async (newToken: string) => {
-    console.log("[FCM] token refreshed");
-    await registerFcmTokenWithBackend(newToken);
+  unsubscribeOpened = messaging().onNotificationOpenedApp((remoteMessage) => {
+    handleRemoteMessageOpen(
+      remoteMessage?.data as Record<string, string | undefined>,
+    );
   });
 
-  console.log("[FCM] messaging listeners attached");
+  unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
+    await registerFcmTokenWithBackend(newToken);
+  });
 }
 
 export async function checkInitialNotification(): Promise<void> {
@@ -325,54 +197,40 @@ export async function checkInitialNotification(): Promise<void> {
   if (!messaging) return;
 
   try {
-    const initial = await messaging.getInitialNotification();
+    const initial = await messaging().getInitialNotification();
     if (initial?.data) {
       handleRemoteMessageOpen(
         initial.data as Record<string, string | undefined>,
       );
     }
-    console.log("[FCM] initial notification checked");
   } catch (e) {
-    logFcmError("getInitialNotification", e);
+    console.warn("[FCM] getInitialNotification failed:", e);
   }
 }
 
 /** Call once after user reaches Home / has session. Idempotent. */
 export async function initFcmForAuthenticatedUser(): Promise<void> {
   console.log("[FCM] initFcmForAuthenticatedUser() called");
-  logPlatformContext();
-
   const messaging = loadMessaging();
-  if (!messaging) {
-    logFcmError("init", "Firebase Messaging unavailable — loadMessaging() returned null");
-    return;
-  }
+  if (!messaging) return;
 
   try {
-    console.log("[FCM] FCM initialization started");
     await ensureAndroidNotificationPermission();
     await ensureFcmChannel();
 
     const authToken = await getActiveAuthToken();
-    if (!authToken) {
-      logFcmError("init", "no authenticated session");
-      return;
-    }
-    console.log("[FCM] authenticated user/session found");
+    if (!authToken) return;
 
     attachMessagingListeners();
 
     const token = await getFcmToken();
     if (token) {
       await registerFcmTokenWithBackend(token);
-    } else {
-      logFcmError("init", "FCM token could not be obtained");
     }
 
     await checkInitialNotification();
-    console.log("[FCM] initFcmForAuthenticatedUser() completed");
   } catch (e) {
-    logFcmError("init", e);
+    console.warn("[FCM] init failed:", e);
   }
 }
 
@@ -388,41 +246,29 @@ export function teardownFcmListeners(): void {
 
 /** Background handler — register from index.js before AppRegistry */
 export function registerBackgroundMessageHandler(): void {
-  console.log("[FCM] registerBackgroundMessageHandler() called");
-  try {
-    const messaging = loadMessaging();
-    if (!messaging) {
-      logFcmError(
-        "registerBackgroundMessageHandler",
-        "messaging unavailable at startup — will retry when Home initializes FCM",
-      );
-      return;
-    }
+  const messaging = loadMessaging();
+  if (!messaging) return;
 
-    messaging.setBackgroundMessageHandler(async (_remoteMessage: RemoteMessage) => {
-      // System tray handles notification+data payloads when app is backgrounded.
-    });
-    console.log("[FCM] background message handler registered");
-  } catch (e) {
-    logFcmError("registerBackgroundMessageHandler", e);
-  }
+  messaging().setBackgroundMessageHandler(async (_remoteMessage) => {
+    // System tray handles notification+data payloads when app is backgrounded.
+  });
 }
 
 /** Notify-kit press events for foreground-displayed FCM messages */
 export function attachNotifeePressHandler(): (() => void) | null {
-  const loaded = loadNotifyKit();
-  if (!loaded) return null;
   try {
-    const pressType = loaded.enums.EventType.PRESS;
-    return loaded.notifee.onForegroundEvent(({ type, detail }) => {
-      if (type !== pressType) return;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("react-native-notify-kit");
+    const notifee = mod.default || mod;
+    return notifee.onForegroundEvent(({ type, detail }: any) => {
+      const pressTypes = [mod.EventType?.PRESS, 1];
+      if (!pressTypes.includes(type)) return;
       const data = detail?.notification?.data as
         | Record<string, string | undefined>
         | undefined;
       handleRemoteMessageOpen(data);
     });
-  } catch (e) {
-    logFcmError("notifee press handler", e);
+  } catch {
     return null;
   }
 }

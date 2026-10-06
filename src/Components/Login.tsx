@@ -16,6 +16,10 @@ import {
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
 import {
+  EMAIL_REGEX,
+  VALID_EMAIL_MESSAGE,
+} from "../utils/emailValidation";
+import {
   getGoogleSignInSetupMessage,
   isGoogleSignInConfigured,
 } from "../config/googleAuth";
@@ -33,7 +37,6 @@ type Props = {
   goToHome: () => void;
 };
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
 
 const Login: React.FC<Props> = ({
@@ -51,6 +54,8 @@ const Login: React.FC<Props> = ({
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const { scrollRef, onCardLayout, registerField, scrollToField } =
@@ -74,11 +79,64 @@ const Login: React.FC<Props> = ({
     title: string,
     message: string,
     success = false,
+    needsVerification = false,
   ) => {
     setModalTitle(title);
     setModalMessage(message);
     setIsSuccess(success);
+    setVerificationRequired(needsVerification);
     setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setVerificationRequired(false);
+  };
+
+  const handleResendVerification = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || resendLoading) {
+      return;
+    }
+
+    setResendLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showCustomAlert(
+          "Check your email",
+          data.devOtp
+            ? `DEV OTP: ${data.devOtp}`
+            : data.message ||
+                "If an account exists and needs verification, an OTP has been sent",
+          true,
+          false,
+        );
+      } else {
+        showCustomAlert(
+          "Error",
+          data.message || "Could not resend verification code",
+          false,
+          true,
+        );
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      showCustomAlert(
+        "Server Error",
+        `Could not connect to backend\n${API_BASE_URL}\n${detail}`,
+        false,
+        true,
+      );
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const validateEmail = (value: string) => {
@@ -87,7 +145,7 @@ const Login: React.FC<Props> = ({
       return false;
     }
     if (!EMAIL_REGEX.test(value.trim())) {
-      setEmailError("Enter a valid email address");
+      setEmailError(VALID_EMAIL_MESSAGE);
       return false;
     }
     setEmailError("");
@@ -119,6 +177,7 @@ const Login: React.FC<Props> = ({
 
   const persistLoginSession = async (data: {
     token: string;
+    refreshToken?: string;
     user: { id: string; name?: string; email: string };
   }) => {
     if (!data.token || !data.user?.email) {
@@ -131,12 +190,13 @@ const Login: React.FC<Props> = ({
       name: data.user.name || "User",
       email: data.user.email,
       token: data.token,
+      refreshToken: data.refreshToken,
     });
 
     if (!saved.ok) {
       showCustomAlert(
         "Limit reached",
-        "Max 4 IDs at a time. Delete one from Profile to login another.",
+        "Max 2 IDs at a time. Delete one from Profile to login another.",
       );
       return false;
     }
@@ -181,9 +241,17 @@ const Login: React.FC<Props> = ({
         showCustomAlert("Success 🎉", "Login successful", true);
 
         setTimeout(() => {
-          setModalVisible(false);
+          closeModal();
           goToHome();
         }, 600);
+      } else if (data.verificationRequired) {
+        // No JWT — do not persist session.
+        showCustomAlert(
+          "Verify email",
+          data.message || "Please verify your email before logging in.",
+          false,
+          true,
+        );
       } else {
         showCustomAlert("Error", data.message || "Login failed ❌");
       }
@@ -232,7 +300,7 @@ const Login: React.FC<Props> = ({
 
         showCustomAlert("Success 🎉", "Signed in with Google", true);
         setTimeout(() => {
-          setModalVisible(false);
+          closeModal();
           goToHome();
         }, 600);
         return;
@@ -402,17 +470,46 @@ const Login: React.FC<Props> = ({
 
               <Text style={styles.modalMessage}>{modalMessage}</Text>
 
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  {
-                    backgroundColor: isSuccess ? "#6c4df7" : "#ff3b30",
-                  },
-                ]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>OK</Text>
-              </TouchableOpacity>
+              {verificationRequired ? (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.resendVerifyButton,
+                      resendLoading && styles.modalButtonDisabled,
+                    ]}
+                    onPress={handleResendVerification}
+                    disabled={resendLoading}
+                  >
+                    {resendLoading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.modalButtonText}>
+                        Resend verification code
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalSecondaryButton}
+                    onPress={closeModal}
+                    disabled={resendLoading}
+                  >
+                    <Text style={styles.modalSecondaryButtonText}>OK</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    {
+                      backgroundColor: isSuccess ? "#6c4df7" : "#ff3b30",
+                    },
+                  ]}
+                  onPress={closeModal}
+                >
+                  <Text style={styles.modalButtonText}>OK</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </Modal>
@@ -648,6 +745,28 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 30,
+  },
+
+  modalButtonDisabled: {
+    opacity: 0.7,
+  },
+
+  resendVerifyButton: {
+    backgroundColor: "#6c4df7",
+    minWidth: "80%",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  modalSecondaryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+  },
+
+  modalSecondaryButtonText: {
+    color: "#6c4df7",
+    fontSize: 15,
+    fontWeight: "600",
   },
 
   modalButtonText: {

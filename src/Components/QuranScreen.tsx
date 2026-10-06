@@ -79,6 +79,7 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [view, setView] = useState<QuranView>("hub");
   const [selectedJuz, setSelectedJuz] = useState<number | null>(null);
+  const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
 
   const filteredCards = HUB_CARDS.filter((card) =>
     card.title.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -94,8 +95,9 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
 
   useFeatureBackHandler(
     useCallback(() => {
-      if (view === "para" && selectedJuz != null) {
+      if (view === "para" && (selectedJuz != null || selectedSurah != null)) {
         setSelectedJuz(null);
+        setSelectedSurah(null);
         setView("read");
         return true;
       }
@@ -104,13 +106,27 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
         return true;
       }
       return false;
-    }, [view, selectedJuz]),
-    [view, selectedJuz],
+    }, [view, selectedJuz, selectedSurah]),
+    [view, selectedJuz, selectedSurah],
   );
+
+  if (view === "para" && selectedSurah != null) {
+    return (
+      <ParaAyahsScreen
+        mode="surah"
+        surahNumber={selectedSurah}
+        goBack={() => {
+          setSelectedSurah(null);
+          setView("read");
+        }}
+      />
+    );
+  }
 
   if (view === "para" && selectedJuz != null) {
     return (
       <ParaAyahsScreen
+        mode="para"
         juzNumber={selectedJuz}
         goBack={() => {
           setSelectedJuz(null);
@@ -125,7 +141,13 @@ const QuranScreen: React.FC<Props> = ({ goBack }) => {
       <ReadQuranScreen
         goBack={() => setView("hub")}
         onOpenJuz={(juzNumber) => {
+          setSelectedSurah(null);
           setSelectedJuz(juzNumber);
+          setView("para");
+        }}
+        onOpenSurah={(surahNumber) => {
+          setSelectedJuz(null);
+          setSelectedSurah(surahNumber);
           setView("para");
         }}
       />

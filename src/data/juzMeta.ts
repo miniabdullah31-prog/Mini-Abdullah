@@ -9,8 +9,9 @@ export type JuzMeta = {
 export const JUZ_LIST: JuzMeta[] = [
   { number: 1, name: "Alif Lam Meem", nameArabic: "الم", range: "1:1 – 2:141" },
   { number: 2, name: "Sayaqool", nameArabic: "سيقول", range: "2:142 – 2:252" },
-  { number: 3, name: "Tilkal Rusul", nameArabic: "تلك الرسل", range: "2:253 – 3:92" },
-  { number: 4, name: "Lan Tana Loo", nameArabic: "لن تنالوا", range: "3:93 – 4:23" },
+  { number: 3, name: "Tilkal Rusul", nameArabic: "تلك الرسل", range: "2:253 – 3:91" },
+  // App Para grouping: 3:92 لن تنالوا starts Para 4 (ayah identity unchanged).
+  { number: 4, name: "Lan Tana Loo", nameArabic: "لن تنالوا", range: "3:92 – 4:23" },
   { number: 5, name: "Wal Mohsanat", nameArabic: "والمحصنات", range: "4:24 – 4:147" },
   { number: 6, name: "La Yuhibbullah", nameArabic: "لا يحب الله", range: "4:148 – 5:81" },
   { number: 7, name: "Wa Iza Samiu", nameArabic: "وإذا سمعوا", range: "5:82 – 6:110" },

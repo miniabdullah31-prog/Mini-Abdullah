@@ -2,9 +2,11 @@
  * Local scheduled notifications for Mini Abdullah (FYP).
  *
  * Approach: react-native-notify-kit (maintained Notifee-compatible API).
- * No Firebase / FCM — this project has no google-services.json.
- * Prayer times + daily reminders are scheduled on-device when Profile
- * Notifications is ON. Server push is not required for the demo.
+ * This module is for on-device reminders only (prayer / daily learning / tutor
+ * 5-minute cues) on channel `miniabdullah_reminders`.
+ *
+ * Server push (FCM) lives in `fcmService.ts` + Firebase Admin — controlled
+ * separately from the Profile "Notifications" preference (local only).
  */
 import { PermissionsAndroid, Platform } from "react-native";
 import {
@@ -35,6 +37,7 @@ type NotifeeModule = typeof import("react-native-notify-kit").default & {
   createTriggerNotification: (n: object, t: object) => Promise<string>;
   displayNotification: (n: object) => Promise<string>;
   cancelAllNotifications: () => Promise<void>;
+  cancelNotification?: (id: string) => Promise<void>;
   requestPermission: () => Promise<{ authorizationStatus: number }>;
 };
 
@@ -180,6 +183,7 @@ async function scheduleAt(
   body: string,
   timestamp: number,
   repeatDaily: boolean,
+  data?: Record<string, string>,
 ): Promise<void> {
   const loaded = loadNotifee();
   if (!loaded) return;
@@ -199,6 +203,7 @@ async function scheduleAt(
       id,
       title,
       body,
+      data: data || {},
       android: {
         channelId: CHANNEL_ID,
         pressAction: { id: "default" },
@@ -210,6 +215,35 @@ async function scheduleAt(
     },
     trigger,
   );
+}
+
+/** Cancel a single scheduled/displayed notification by id (no secrets logged). */
+export async function cancelNotificationById(id: string): Promise<void> {
+  try {
+    const loaded = loadNotifee();
+    if (!loaded) return;
+    if (typeof loaded.notifee.cancelNotification === "function") {
+      await loaded.notifee.cancelNotification(id);
+    }
+  } catch (e) {
+    console.warn("[notifications] Cancel by id failed:", e);
+  }
+}
+
+async function cancelLearningReminderIds(): Promise<void> {
+  const loaded = loadNotifee();
+  if (!loaded) return;
+  if (typeof loaded.notifee.cancelNotification === "function") {
+    for (const id of Object.values(ID)) {
+      try {
+        await loaded.notifee.cancelNotification(id);
+      } catch {
+        // ignore missing
+      }
+    }
+    return;
+  }
+  await loaded.notifee.cancelAllNotifications();
 }
 
 const PRAYER_COPY: Record<
@@ -342,7 +376,7 @@ export async function syncNotificationsFromPreference(
     }
 
     await ensureChannel();
-    await cancelAllAppNotifications();
+    await cancelLearningReminderIds();
 
     const times = await getCachedPrayerTimes();
     await schedulePrayerReminders(times);
@@ -373,5 +407,108 @@ export async function refreshPrayerNotificationsIfEnabled(): Promise<void> {
     await syncNotificationsFromPreference(true);
   } catch (e) {
     console.warn("[notifications] Prayer refresh failed:", e);
+  }
+}
+
+/** Stable Notifee id — one reminder per appointment (prevents duplicates). */
+export function tutorReminderNotificationId(appointmentId: string): string {
+  return `tutor-appt-${String(appointmentId)}`;
+}
+
+function appointmentWallClockMs(
+  dateKey: string,
+  hhmm: string,
+): number | null {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const [hh, mm] = hhmm.split(":").map(Number);
+  if (!y || !m || !d || !Number.isFinite(hh) || !Number.isFinite(mm)) {
+    return null;
+  }
+  return new Date(y, m - 1, d, hh, mm, 0, 0).getTime();
+}
+
+export type TutorReminderAppointment = {
+  id: string;
+  date: string;
+  startTime: string;
+  status: string;
+  canJoin?: boolean;
+  requiresPayment?: boolean;
+  paymentStatus?: string;
+};
+
+function isEligibleForTutorReminder(appt: TutorReminderAppointment): boolean {
+  if (appt.status !== "confirmed") return false;
+  if (appt.requiresPayment && appt.paymentStatus !== "paid") return false;
+  if (appt.canJoin === false) return false;
+  return true;
+}
+
+/**
+ * Schedule a one-shot local reminder 5 minutes before a confirmed tutor session.
+ * Deep-link data: screen 21 (Tutor). Does not log Zoom URLs.
+ */
+export async function scheduleTutorAppointmentReminder(
+  appt: TutorReminderAppointment,
+): Promise<void> {
+  try {
+    if (!isEligibleForTutorReminder(appt)) {
+      await cancelTutorAppointmentReminder(appt.id);
+      return;
+    }
+
+    const startMs = appointmentWallClockMs(appt.date, appt.startTime);
+    if (!startMs) return;
+
+    const fireAt = startMs - 5 * 60 * 1000;
+    const id = tutorReminderNotificationId(appt.id);
+
+    await cancelNotificationById(id);
+
+    if (fireAt <= Date.now()) {
+      return;
+    }
+
+    const allowed = await requestNotificationPermission();
+    if (!allowed) return;
+    await ensureChannel();
+
+    await scheduleAt(
+      id,
+      "Tutor session soon",
+      "Your Tutor session starts in 5 minutes. Kindly join your Zoom session.",
+      fireAt,
+      false,
+      {
+        type: "tutor",
+        screen: "21",
+        appointmentId: String(appt.id),
+      },
+    );
+  } catch (e) {
+    console.warn("[notifications] Tutor reminder schedule failed:", e);
+  }
+}
+
+export async function cancelTutorAppointmentReminder(
+  appointmentId: string,
+): Promise<void> {
+  await cancelNotificationById(tutorReminderNotificationId(appointmentId));
+}
+
+/** Resync reminders for the user's appointment list (confirmed only). */
+export async function syncTutorAppointmentReminders(
+  appointments: TutorReminderAppointment[],
+): Promise<void> {
+  try {
+    for (const appt of appointments) {
+      if (isEligibleForTutorReminder(appt)) {
+        await scheduleTutorAppointmentReminder(appt);
+      } else {
+        await cancelTutorAppointmentReminder(appt.id);
+      }
+    }
+  } catch (e) {
+    console.warn("[notifications] Tutor reminder sync failed:", e);
   }
 }

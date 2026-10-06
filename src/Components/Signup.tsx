@@ -14,16 +14,30 @@ import {
   Platform,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import { useFormScroll } from "../hooks/useFormScroll";
+import {
+  isValidEmailFormat,
+  VALID_EMAIL_MESSAGE,
+} from "../utils/emailValidation";
 import { upsertSavedAccount } from "../services/accountStore";
 import { resetChatMemoryCache } from "../services/chatHistoryStore";
-import { useFormScroll } from "../hooks/useFormScroll";
+
+const SMTP_SEND_FAILED_MESSAGE =
+  "We couldn't send the verification code to this email. Please check your email address and try again.";
 
 type Props = {
   goToLogin: () => void;
-  goToSuccess: () => void;
+  /** When ENABLE_EMAIL_VERIFICATION=true — open email OTP after signup. */
+  goToEmailVerification: (email: string) => void;
+  /** When verification is off — gender → avatar after signup + JWT. */
+  goToProfileSetup: () => void;
 };
 
-const Signup: React.FC<Props> = ({ goToLogin, goToSuccess }) => {
+const Signup: React.FC<Props> = ({
+  goToLogin,
+  goToEmailVerification,
+  goToProfileSetup,
+}) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,6 +73,11 @@ const Signup: React.FC<Props> = ({ goToLogin, goToSuccess }) => {
       return;
     }
 
+    if (!isValidEmailFormat(email)) {
+      showCustomAlert("Error", VALID_EMAIL_MESSAGE);
+      return;
+    }
+
     if (password !== confirmPassword) {
       showCustomAlert("Error", "Passwords do not match ❌");
       return;
@@ -74,7 +93,7 @@ const Signup: React.FC<Props> = ({ goToLogin, goToSuccess }) => {
         },
         body: JSON.stringify({
           name,
-          email,
+          email: email.trim().toLowerCase(),
           password,
         }),
       });
@@ -82,49 +101,66 @@ const Signup: React.FC<Props> = ({ goToLogin, goToSuccess }) => {
       const data = await res.json();
 
       if (data.success) {
-        try {
-          if (data.token && data.user?.email) {
-            const saved = await upsertSavedAccount({
-              id: data.user.id,
-              name: data.user.name || name,
-              email: data.user.email,
-              token: data.token,
-            });
+        const normalizedEmail = String(data.user?.email || email)
+          .trim()
+          .toLowerCase();
 
+        if (!normalizedEmail) {
+          showCustomAlert("Error", "Signup response incomplete ❌");
+          return;
+        }
+
+        // Temporary bypass path: JWT returned, no OTP (ENABLE_EMAIL_VERIFICATION=false).
+        if (data.token && !data.verificationRequired) {
+          try {
+            const saved = await upsertSavedAccount({
+              id: String(data.user?.id || normalizedEmail),
+              name: data.user?.name || name || "User",
+              email: normalizedEmail,
+              token: data.token,
+              refreshToken: data.refreshToken,
+            });
             if (!saved.ok) {
               showCustomAlert(
                 "Limit reached",
-                "Max 4 IDs at a time. Delete one from Profile to add another.",
+                "Max 2 IDs at a time. Delete one from Profile to add another.",
               );
               return;
             }
             resetChatMemoryCache();
-          } else {
-            showCustomAlert("Error", "Signup response incomplete ❌");
+          } catch {
+            showCustomAlert("Error", "Could not save login session ❌");
             return;
           }
-        } catch {
-          showCustomAlert("Error", "Could not save signup session ❌");
+
+          showCustomAlert("Success 🎉", "Account created successfully", true);
+          setTimeout(() => {
+            setModalVisible(false);
+            goToProfileSetup();
+          }, 600);
           return;
         }
 
-        showCustomAlert(
-          "Success 🎉",
-          "Account created successfully",
-          true,
-        );
+        // Full verification path (ENABLE_EMAIL_VERIFICATION=true) — keep intact.
+        const msg = data.devOtp
+          ? `Check your email for a verification code.\n\nDEV OTP: ${data.devOtp}`
+          : data.message ||
+            "Account created. Please verify your email with the OTP sent.";
+
+        showCustomAlert("Verify your email", msg, true);
 
         setTimeout(() => {
           setModalVisible(false);
-          goToSuccess();
-        }, 500);
+          goToEmailVerification(normalizedEmail);
+        }, 600);
       } else {
-        showCustomAlert(
-          "Error",
-          typeof data.message === "string"
-            ? data.message
-            : "Signup failed ❌",
-        );
+        const failMessage =
+          data?.code === "SMTP_SEND_FAILED"
+            ? SMTP_SEND_FAILED_MESSAGE
+            : typeof data.message === "string"
+              ? data.message
+              : "Signup failed ❌";
+        showCustomAlert("Error", failMessage);
       }
     } catch (error) {
       const detail =

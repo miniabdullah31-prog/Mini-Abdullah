@@ -14,6 +14,9 @@ import {
   TextInput,
   ActivityIndicator,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import LinearGradient from "react-native-linear-gradient";
@@ -24,7 +27,16 @@ import {
   getActiveAccountEmail,
   logoutCurrentAccount,
   switchToAccount,
+  updateSavedAccountProfile,
 } from "../services/accountStore";
+import { authFetch, getValidAccessToken, revokeServerSession } from "../services/authSession";
+import {
+  AvatarId,
+  getAvatarSource,
+  getAvatarsForGender,
+  isAvatarId,
+  ProfileGender,
+} from "../data/avatars";
 import {
   getRatingStars,
   setRatingStars,
@@ -41,6 +53,7 @@ import {
 import { resetChatMemoryCache } from "../services/chatHistoryStore";
 import { API_BASE_URL } from "../config/api";
 import { playUiSound } from "../services/soundService";
+import { useFormScroll } from "../hooks/useFormScroll";
 import RateAppModal from "./RateAppModal";
 
 type Props = {
@@ -68,8 +81,21 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
   const [ratingStars, setRatingStarsState] = useState(0);
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
   const [activeEmail, setActiveEmail] = useState<string | null>(null);
+  /** False until first ensureAccountsHydrated finishes — avoids false Guest flash. */
+  const [accountsHydrated, setAccountsHydrated] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [switchToastName, setSwitchToastName] = useState<string | null>(null);
+
+  const [editAccount, setEditAccount] = useState<SavedAccount | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editGender, setEditGender] = useState<ProfileGender | null>(null);
+  const [editAvatarId, setEditAvatarId] = useState<AvatarId | null>(null);
+  const [editPassword, setEditPassword] = useState("");
+  const { scrollRef, onCardLayout, registerField, scrollToField } =
+    useFormScroll(24);
+  const [editConfirmPassword, setEditConfirmPassword] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editKeyboardOpen, setEditKeyboardOpen] = useState(false);
 
   const contentOpacity = useRef(new Animated.Value(1)).current;
   const contentScale = useRef(new Animated.Value(1)).current;
@@ -173,10 +199,16 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
   }, [clearSwitchToastTimer]);
 
   const refreshAccounts = useCallback(async () => {
-    const list = await ensureAccountsHydrated();
-    const active = await getActiveAccountEmail();
-    setAccounts(list);
-    setActiveEmail(active);
+    try {
+      const list = await ensureAccountsHydrated();
+      const active = await getActiveAccountEmail();
+      setAccounts(list);
+      setActiveEmail(active);
+    } catch {
+      // Keep previous list if hydrate fails — never invent Guest mid-session
+    } finally {
+      setAccountsHydrated(true);
+    }
   }, []);
 
   const refreshRating = useCallback(async () => {
@@ -240,6 +272,155 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     hydrateUiSoundPref().catch(() => undefined);
   }, [refreshAccounts, refreshRating, refreshNotificationsPref, refreshSoundPref]);
 
+  const openEditProfile = (account: SavedAccount) => {
+    setEditAccount(account);
+    setEditName(account.name || "");
+    setEditGender(account.gender || null);
+    setEditAvatarId(account.avatarId || null);
+    setEditPassword("");
+    setEditConfirmPassword("");
+  };
+
+  const closeEditProfile = () => {
+    if (editSaving) return;
+    setEditAccount(null);
+    setEditPassword("");
+    setEditConfirmPassword("");
+    setEditKeyboardOpen(false);
+  };
+
+  useEffect(() => {
+    if (!editAccount) {
+      setEditKeyboardOpen(false);
+      return;
+    }
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setEditKeyboardOpen(true),
+    );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setEditKeyboardOpen(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [editAccount]);
+
+  const handleEditGenderSelect = (gender: ProfileGender) => {
+    setEditGender(gender);
+    const options = getAvatarsForGender(gender);
+    if (
+      !editAvatarId ||
+      !options.some((o) => o.id === editAvatarId)
+    ) {
+      setEditAvatarId(options[0]?.id || null);
+    }
+  };
+
+  const saveEditProfile = async () => {
+    if (!editAccount || editSaving) return;
+
+    const name = editName.trim();
+    if (!name) {
+      Alert.alert("Name required", "Please enter a name.");
+      return;
+    }
+
+    if (editPassword || editConfirmPassword) {
+      if (editPassword.length < 6) {
+        Alert.alert("Password", "Password must be at least 6 characters.");
+        return;
+      }
+      if (editPassword !== editConfirmPassword) {
+        Alert.alert("Password", "Passwords do not match.");
+        return;
+      }
+    }
+
+    if (editGender && !editAvatarId) {
+      Alert.alert("Avatar", "Please select an avatar.");
+      return;
+    }
+
+    if (
+      editGender &&
+      editAvatarId &&
+      !getAvatarsForGender(editGender).some((o) => o.id === editAvatarId)
+    ) {
+      Alert.alert("Avatar", "Please pick an avatar that matches the gender.");
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const token = (await getValidAccessToken()) || "";
+      const needsServer =
+        name !== editAccount.name || !!editPassword;
+
+      if (needsServer) {
+        if (!token) {
+          Alert.alert(
+            "Session missing",
+            "This profile has no login token. Please log in again to update name or password.",
+          );
+          return;
+        }
+
+        const body: { name?: string; password?: string } = { name };
+        if (editPassword) {
+          body.password = editPassword;
+        }
+
+        const res = await authFetch(`${API_BASE_URL}/api/auth/profile`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!data?.success) {
+          Alert.alert(
+            "Update failed",
+            typeof data?.message === "string"
+              ? data.message
+              : "Could not update profile on server.",
+          );
+          return;
+        }
+      }
+
+      const updated = await updateSavedAccountProfile(editAccount.email, {
+        name,
+        ...(editGender ? { gender: editGender } : {}),
+        ...(isAvatarId(editAvatarId) ? { avatarId: editAvatarId } : {}),
+      });
+
+      if (!updated) {
+        Alert.alert("Update failed", "Could not save profile locally.");
+        return;
+      }
+
+      const list = await ensureAccountsHydrated();
+      setAccounts(list);
+      setEditAccount(null);
+      setEditPassword("");
+      setEditConfirmPassword("");
+      Alert.alert("Saved", "Profile updated successfully.");
+    } catch (error) {
+      const detail =
+        error instanceof Error ? error.message : String(error);
+      Alert.alert("Update failed", detail);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleAddProfilePress = () => {
     setAddProfileModal(true);
   };
@@ -249,7 +430,7 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     if (accounts.length >= MAX_SAVED_ACCOUNTS) {
       Alert.alert(
         "Limit reached",
-        "Max 4 IDs login at a time. Delete one if you want another ID to log in.",
+        "Max 2 IDs login at a time. Delete one if you want another ID to log in.",
       );
       return;
     }
@@ -262,8 +443,20 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     if (!target || target === current || switching) return;
 
     const gen = ++switchGenRef.current;
+    const targetAccount = accounts.find(
+      (a) => a.email.toLowerCase().trim() === target,
+    );
+    const displayName =
+      (targetAccount?.name || "").trim() ||
+      (target ? target.split("@")[0] : "") ||
+      "User";
+
+    // Immediate UI feedback — do not wait for AsyncStorage / hydrate / rating
     setSwitching(true);
     setActiveEmail(target);
+    playUiSound("tap");
+    playContentSwitchAnimation();
+    showLoggedInToast(displayName, gen);
 
     try {
       const ok = await switchToAccount(target);
@@ -286,21 +479,17 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
       if (switchGenRef.current !== gen) return;
 
       setActiveEmail(active);
-      const list = await ensureAccountsHydrated();
-      setAccounts(list);
-      await refreshRating();
-
-      const switched = list.find(
-        (a) => a.email.toLowerCase().trim() === active,
-      );
-      const displayName =
-        (switched?.name || "").trim() ||
-        (active ? active.split("@")[0] : "") ||
-        "User";
-
-      playUiSound("tap");
-      playContentSwitchAnimation();
-      showLoggedInToast(displayName, gen);
+      try {
+        const list = await ensureAccountsHydrated();
+        setAccounts(list);
+      } catch {
+        // keep current list
+      }
+      try {
+        await refreshRating();
+      } catch {
+        // ignore
+      }
     } catch {
       if (switchGenRef.current === gen) {
         setActiveEmail(current || null);
@@ -318,6 +507,11 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     const wasOnlyOne = accounts.length <= 1;
 
     try {
+      try {
+        await revokeServerSession();
+      } catch {
+        // Server revoke is best-effort
+      }
       try {
         const { signOutGoogleSession } = await import(
           "../services/googleAuthService"
@@ -390,14 +584,15 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     setSupportSending(true);
 
     try {
+      const token = await getValidAccessToken();
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (active?.token) {
-        headers.Authorization = `Bearer ${active.token}`;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/support`, {
+      const res = await authFetch(`${API_BASE_URL}/api/support`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -485,14 +680,15 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
     setFeedbackSending(true);
 
     try {
+      const token = await getValidAccessToken();
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (active?.token) {
-        headers.Authorization = `Bearer ${active.token}`;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/support`, {
+      const res = await authFetch(`${API_BASE_URL}/api/support`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -591,7 +787,21 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
               </TouchableOpacity>
             </View>
 
-            {accounts.length === 0 ? (
+            {!accountsHydrated ? (
+              <View style={styles.accountCard}>
+                <LinearGradient
+                  colors={["#EDE7FF", "#F7F4FF"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.accountCardInner, { justifyContent: "center" }]}
+                >
+                  <ActivityIndicator size="small" color="#6C4DF7" />
+                  <Text style={[styles.email, { marginLeft: 12 }]}>
+                    Loading profiles…
+                  </Text>
+                </LinearGradient>
+              </View>
+            ) : accounts.length === 0 ? (
               <View style={styles.accountCard}>
                 <LinearGradient
                   colors={["#EDE7FF", "#F7F4FF"]}
@@ -617,19 +827,7 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
                   !!activeEmail &&
                   account.email.toLowerCase() === activeEmail.toLowerCase();
                 return (
-                  <TouchableOpacity
-                    key={account.email}
-                    activeOpacity={0.88}
-                    onPress={() => handleSwitch(account.email)}
-                    style={styles.accountCard}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      isActive
-                        ? `${account.name}, active account`
-                        : `Switch to ${account.name}`
-                    }
-                    accessibilityState={{ selected: isActive }}
-                  >
+                  <View key={account.email} style={styles.accountCard}>
                     <LinearGradient
                       colors={
                         isActive
@@ -638,50 +836,90 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
                       }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={styles.accountCardInner}
+                      style={styles.accountCardInnerCol}
                     >
-                      <View
-                        style={[
-                          styles.avatarRing,
-                          isActive && styles.avatarRingActive,
-                        ]}
+                      <TouchableOpacity
+                        activeOpacity={0.88}
+                        onPress={() => handleSwitch(account.email)}
+                        style={styles.accountCardRow}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          isActive
+                            ? `${account.name}, active account`
+                            : `Switch to ${account.name}`
+                        }
+                        accessibilityState={{ selected: isActive }}
                       >
-                        <Image
-                          source={require("../assets/miniAbdullah.png")}
-                          style={styles.profileImg}
-                        />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text
+                        <View
                           style={[
-                            styles.name,
-                            isActive && styles.nameActive,
+                            styles.avatarRing,
+                            isActive && styles.avatarRingActive,
                           ]}
                         >
-                          {account.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.email,
-                            isActive && styles.emailActive,
-                          ]}
-                        >
-                          {account.email}
-                        </Text>
-                      </View>
-                      {isActive ? (
-                        <View style={styles.activePill}>
-                          <Text style={styles.activePillText}>Active</Text>
+                          <Image
+                            source={getAvatarSource(
+                              account.avatarId,
+                              account.gender,
+                            )}
+                            style={styles.profileImg}
+                          />
                         </View>
-                      ) : (
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text
+                            style={[
+                              styles.name,
+                              isActive && styles.nameActive,
+                            ]}
+                          >
+                            {account.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.email,
+                              isActive && styles.emailActive,
+                            ]}
+                          >
+                            {account.email}
+                          </Text>
+                        </View>
+                        {isActive ? (
+                          <View style={styles.activePill}>
+                            <Text style={styles.activePillText}>Active</Text>
+                          </View>
+                        ) : (
+                          <Ionicons
+                            name="swap-horizontal"
+                            size={18}
+                            color="#6C4DF7"
+                          />
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.editProfileBtn,
+                          isActive && styles.editProfileBtnActive,
+                        ]}
+                        onPress={() => openEditProfile(account)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Edit ${account.name}`}
+                      >
                         <Ionicons
-                          name="swap-horizontal"
-                          size={18}
-                          color="#6C4DF7"
+                          name="create-outline"
+                          size={14}
+                          color={isActive ? "#fff" : "#6C4DF7"}
                         />
-                      )}
+                        <Text
+                          style={[
+                            styles.editProfileBtnText,
+                            isActive && styles.editProfileBtnTextActive,
+                          ]}
+                        >
+                          Edit
+                        </Text>
+                      </TouchableOpacity>
                     </LinearGradient>
-                  </TouchableOpacity>
+                  </View>
                 );
               })
             )}
@@ -689,7 +927,7 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Notifications</Text>
+          <Text style={styles.label}>Local reminders</Text>
           <Switch
             value={notifications}
             onValueChange={handleNotificationsChange}
@@ -1002,7 +1240,7 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
               <Text style={styles.aboutFeatureLine}>• Salah steps · Sunnah · Duas</Text>
               <Text style={styles.aboutFeatureLine}>• 99 Names of Allah · Quiz games</Text>
               <Text style={styles.aboutFeatureLine}>• Prayer times · Daily Islamic quote</Text>
-              <Text style={styles.aboutFeatureLine}>• Multi-account profiles (max 4)</Text>
+              <Text style={styles.aboutFeatureLine}>• Multi-account profiles (max 2)</Text>
             </View>
             <Text style={styles.aboutVersion}>Version 1.0 · BSCS Final Year Project</Text>
             <TouchableOpacity
@@ -1015,6 +1253,193 @@ const ProfileScreen: React.FC<Props> = ({ goToHome, goToWelcome, goToTutor }) =>
               <Text style={styles.actionBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      ) : null}
+
+      {editAccount ? (
+        <View style={styles.editModalOverlay} pointerEvents="auto">
+          <KeyboardAvoidingView
+            style={styles.editKeyboardWrap}
+            behavior="padding"
+            keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+          >
+            <ScrollView
+              ref={scrollRef}
+              style={styles.editOuterScroll}
+              contentContainerStyle={[
+                styles.editScrollContent,
+                editKeyboardOpen && styles.editScrollContentKeyboard,
+              ]}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View
+                style={[styles.modalBox, styles.editModalBox]}
+                onLayout={(e) => onCardLayout(e.nativeEvent.layout.y)}
+              >
+                <Text style={styles.modalTitle}>Edit profile</Text>
+                <Text style={styles.modalDesc}>{editAccount.email}</Text>
+
+                <View
+                  style={styles.editFieldWrap}
+                  onLayout={(e) =>
+                    registerField("name", e.nativeEvent.layout.y)
+                  }
+                >
+                  <Text style={styles.editFieldLabel}>Name</Text>
+                  <TextInput
+                    style={styles.editInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="Name"
+                    placeholderTextColor="#999"
+                    editable={!editSaving}
+                    onFocus={() => scrollToField("name")}
+                  />
+                </View>
+
+                <Text style={styles.editFieldLabel}>Gender</Text>
+                <View style={styles.editGenderRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.editGenderChip,
+                      editGender === "girl" && styles.editGenderChipOn,
+                    ]}
+                    onPress={() => handleEditGenderSelect("girl")}
+                    disabled={editSaving}
+                  >
+                    <Text
+                      style={[
+                        styles.editGenderChipText,
+                        editGender === "girl" && styles.editGenderChipTextOn,
+                      ]}
+                    >
+                      👧 Girl
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.editGenderChip,
+                      editGender === "boy" && styles.editGenderChipOn,
+                    ]}
+                    onPress={() => handleEditGenderSelect("boy")}
+                    disabled={editSaving}
+                  >
+                    <Text
+                      style={[
+                        styles.editGenderChipText,
+                        editGender === "boy" && styles.editGenderChipTextOn,
+                      ]}
+                    >
+                      👦 Boy
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {editGender ? (
+                  <>
+                    <Text style={styles.editFieldLabel}>Avatar</Text>
+                    <View style={styles.editAvatarRow}>
+                      {getAvatarsForGender(editGender).map((opt) => {
+                        const selected = editAvatarId === opt.id;
+                        return (
+                          <TouchableOpacity
+                            key={opt.id}
+                            style={[
+                              styles.editAvatarWrap,
+                              selected && styles.editAvatarWrapOn,
+                            ]}
+                            onPress={() => setEditAvatarId(opt.id)}
+                            disabled={editSaving}
+                          >
+                            <Image
+                              source={opt.source}
+                              style={styles.editAvatarImg}
+                            />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
+
+                <View
+                  style={styles.editFieldWrap}
+                  onLayout={(e) =>
+                    registerField("password", e.nativeEvent.layout.y)
+                  }
+                >
+                  <Text style={styles.editFieldLabel}>
+                    New password (optional)
+                  </Text>
+                  <TextInput
+                    style={styles.editInput}
+                    value={editPassword}
+                    onChangeText={setEditPassword}
+                    placeholder="Leave blank to keep current"
+                    placeholderTextColor="#999"
+                    secureTextEntry
+                    editable={!editSaving}
+                    onFocus={() => scrollToField("password")}
+                  />
+                </View>
+
+                <View
+                  style={styles.editFieldWrap}
+                  onLayout={(e) =>
+                    registerField("confirm", e.nativeEvent.layout.y)
+                  }
+                >
+                  <TextInput
+                    style={[styles.editInput, { marginTop: 8 }]}
+                    value={editConfirmPassword}
+                    onChangeText={setEditConfirmPassword}
+                    placeholder="Confirm new password"
+                    placeholderTextColor="#999"
+                    secureTextEntry
+                    editable={!editSaving}
+                    onFocus={() => scrollToField("confirm")}
+                  />
+                </View>
+
+                <View style={styles.modalButtonRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionModalBtn,
+                      { backgroundColor: "#6C4DF7", flex: 1 },
+                      editSaving && { opacity: 0.7 },
+                    ]}
+                    onPress={saveEditProfile}
+                    disabled={editSaving}
+                  >
+                    {editSaving ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.actionBtnText}>Save</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionModalBtn,
+                      {
+                        backgroundColor: "#F1F2F6",
+                        marginLeft: 10,
+                        flex: 1,
+                      },
+                    ]}
+                    onPress={closeEditProfile}
+                    disabled={editSaving}
+                  >
+                    <Text style={[styles.actionBtnText, { color: "#555" }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       ) : null}
 
@@ -1144,6 +1569,143 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 18,
+  },
+  accountCardInnerCol: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+  },
+  accountCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  editProfileBtn: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    marginLeft: 70,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: "rgba(108,77,247,0.12)",
+  },
+  editProfileBtnActive: {
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  editProfileBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6C4DF7",
+  },
+  editProfileBtnTextActive: {
+    color: "#fff",
+  },
+  editModalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    zIndex: 10000,
+    elevation: 10000,
+  },
+  editKeyboardWrap: {
+    width: "100%",
+    maxHeight: "100%",
+  },
+  editOuterScroll: {
+    width: "100%",
+  },
+  editScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  editScrollContentKeyboard: {
+    justifyContent: "flex-end",
+    paddingBottom: 8,
+  },
+  editModalBox: {
+    width: "100%",
+    // Cap only; card height stays content-sized (not stretched).
+    maxHeight: "88%",
+  },
+  editFieldWrap: {
+    width: "100%",
+  },
+  editFieldLabel: {
+    alignSelf: "flex-start",
+    marginTop: 12,
+    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4B2AA8",
+  },
+  editInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#E0D7F7",
+    backgroundColor: "#F8F6FF",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: "#2E1A6B",
+  },
+  editGenderRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  editGenderChip: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#E0D7F7",
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#F8F6FF",
+  },
+  editGenderChipOn: {
+    borderColor: "#6C4DF7",
+    backgroundColor: "#6C4DF7",
+  },
+  editGenderChipText: {
+    fontWeight: "700",
+    color: "#4B2AA8",
+  },
+  editGenderChipTextOn: {
+    color: "#fff",
+  },
+  editAvatarRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    width: "100%",
+    marginBottom: 4,
+  },
+  editAvatarWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
+    borderColor: "#E0D7F7",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
+  editAvatarWrapOn: {
+    borderColor: "#6C4DF7",
+  },
+  editAvatarImg: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   avatarRing: {
     width: 58,

@@ -11,6 +11,7 @@ import {
   Linking,
   ImageBackground,
   TouchableOpacity,
+  TextInput,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
@@ -20,17 +21,27 @@ import HeaderSpark from "./HeaderSparkStar";
 import { useFeatureBackHandler } from "../hooks/useFeatureBackHandler";
 import {
   AvailabilitySlot,
+  PaymentCheckoutInfo,
   Tutor,
   TutorAppointment,
   cancelAppointment,
   createAppointment,
+  fetchFreeTrialStatus,
   fetchMyAppointments,
   fetchTutorAvailability,
   fetchTutors,
   formatFriendlyDate,
+  formatMoney,
   formatSlotLabel,
+  verifyPaymentOrder,
 } from "../services/tutorService";
+import { markTutorFreeTrialUsed } from "../services/tutorFreeTrialStore";
 import { playUiSound } from "../services/soundService";
+import {
+  cancelTutorAppointmentReminder,
+  scheduleTutorAppointmentReminder,
+  syncTutorAppointmentReminders,
+} from "../services/notificationService";
 
 type Props = {
   goBack: () => void;
@@ -65,16 +76,39 @@ function nextDateKeys(count: number) {
 }
 
 function tutorTheme(tutor: Tutor) {
-  if (tutor.slug === "islamic-studies-teacher") {
+  if (tutor.slug === "quran-translation-tafseer-tutor") {
     return {
       colors: ["#0F9B8E", "#34D1BF"] as [string, string],
       icon: "library" as const,
+    };
+  }
+  if (tutor.slug === "islamic-life-guidance-tutor") {
+    return {
+      colors: ["#C45C2A", "#E08A4F"] as [string, string],
+      icon: "compass" as const,
     };
   }
   return {
     colors: ["#6C4DF7", "#4B2AA8"] as [string, string],
     icon: "book" as const,
   };
+}
+
+const TUTOR_ORDER = [
+  "quran-tutor",
+  "quran-translation-tafseer-tutor",
+  "islamic-life-guidance-tutor",
+];
+
+function sortTutors(list: Tutor[]) {
+  return [...list].sort((a, b) => {
+    const ai = TUTOR_ORDER.indexOf(a.slug);
+    const bi = TUTOR_ORDER.indexOf(b.slug);
+    const av = ai === -1 ? 99 : ai;
+    const bv = bi === -1 ? 99 : bi;
+    if (av !== bv) return av - bv;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
@@ -95,19 +129,26 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
 
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookedAppt, setBookedAppt] = useState<TutorAppointment | null>(null);
+  const [bookingPurpose, setBookingPurpose] = useState("");
+  const [freeTrialUsed, setFreeTrialUsed] = useState(false);
+  const [lastBookingWasFree, setLastBookingWasFree] = useState(false);
+  const [lastPaymentInfo, setLastPaymentInfo] =
+    useState<PaymentCheckoutInfo | null>(null);
+  const [paymentCheckBusy, setPaymentCheckBusy] = useState(false);
 
   const [appointments, setAppointments] = useState<TutorAppointment[]>([]);
   const [apptLoading, setApptLoading] = useState(false);
   const [apptError, setApptError] = useState("");
 
   const bookingLock = useRef(false);
+  const isFreeTrialBooking = !freeTrialUsed;
 
   const loadTutors = useCallback(async () => {
     try {
       setHubLoading(true);
       setHubError("");
       const list = await fetchTutors();
-      setTutors(list);
+      setTutors(sortTutors(list));
     } catch (error: any) {
       setHubError(error?.message || "Could not load tutors.");
     } finally {
@@ -118,6 +159,24 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
   useEffect(() => {
     loadTutors();
   }, [loadTutors]);
+
+  const refreshFreeTrialStatus = useCallback(async () => {
+    try {
+      const available = await fetchFreeTrialStatus();
+      setFreeTrialUsed(!available);
+    } catch {
+      try {
+        const { freeTrialAvailable } = await fetchMyAppointments();
+        setFreeTrialUsed(!freeTrialAvailable);
+      } catch {
+        // keep previous
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshFreeTrialStatus();
+  }, [refreshFreeTrialStatus]);
 
   const loadSlots = useCallback(async (tutorId: string, date: string) => {
     try {
@@ -144,8 +203,11 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
     try {
       setApptLoading(true);
       setApptError("");
-      const list = await fetchMyAppointments();
+      const { appointments: list, freeTrialAvailable } =
+        await fetchMyAppointments();
       setAppointments(list);
+      setFreeTrialUsed(!freeTrialAvailable);
+      syncTutorAppointmentReminders(list).catch(() => undefined);
     } catch (error: any) {
       setApptError(error?.message || "Could not load appointments.");
     } finally {
@@ -157,7 +219,9 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
     setSelectedTutor(tutor);
     setSelectedDate(dateKeys[0]);
     setSelectedSlot(null);
+    setBookingPurpose("");
     setView("booking");
+    refreshFreeTrialStatus();
   };
 
   const openAppointments = () => {
@@ -170,6 +234,8 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
     setSelectedTutor(null);
     setSelectedSlot(null);
     setBookedAppt(null);
+    setLastPaymentInfo(null);
+    setBookingPurpose("");
   };
 
   const headerBack = useCallback((): boolean => {
@@ -191,13 +257,36 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
     bookingLock.current = true;
     setBookingBusy(true);
     try {
-      const appt = await createAppointment({
+      const purpose = bookingPurpose.trim();
+      const pricingNote = isFreeTrialBooking
+        ? "First Session — FREE"
+        : "Paid session";
+      const notes = purpose
+        ? `${pricingNote}. ${purpose}`
+        : pricingNote;
+      const result = await createAppointment({
         tutorId: selectedTutor.id,
         date: selectedDate,
         startTime: selectedSlot.startTime,
         endTime: selectedSlot.endTime,
+        notes,
       });
+      const appt = result.appointment;
+      const wasFree = !!appt.isFreeTrial && !appt.paymentRequired;
+      if (wasFree) {
+        await markTutorFreeTrialUsed();
+        setFreeTrialUsed(true);
+      } else {
+        setFreeTrialUsed(true);
+      }
+      setLastBookingWasFree(wasFree);
+      setLastPaymentInfo(result.payment);
       setBookedAppt(appt);
+      if (appt.status === "confirmed" && appt.canJoin) {
+        scheduleTutorAppointmentReminder(appt).catch(() => undefined);
+      } else {
+        cancelTutorAppointmentReminder(appt.id).catch(() => undefined);
+      }
       playUiSound("achievement");
       setView("success");
     } catch (error: any) {
@@ -214,9 +303,53 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
     }
   };
 
-  const joinZoom = async (link: string) => {
+  const checkPaymentStatus = async () => {
+    if (!bookedAppt || paymentCheckBusy) return;
+    const orderId = lastPaymentInfo?.orderId || bookedAppt.paymentOrderId;
+    if (!orderId) {
+      Alert.alert(
+        "Payment",
+        "No payment order is linked yet. Payment provider checkout is not available.",
+      );
+      return;
+    }
+    setPaymentCheckBusy(true);
     try {
-      await Linking.openURL(link);
+      const result = await verifyPaymentOrder({ orderId });
+      if (result.verified && result.appointment) {
+        setBookedAppt(result.appointment);
+        setLastPaymentInfo(null);
+        if (
+          result.appointment.status === "confirmed" &&
+          result.appointment.canJoin
+        ) {
+          scheduleTutorAppointmentReminder(result.appointment).catch(
+            () => undefined,
+          );
+        }
+        Alert.alert("Payment", result.message || "Payment confirmed.");
+        return;
+      }
+      Alert.alert(
+        "Payment pending",
+        result.message ||
+          "Payment is not verified yet. A payment provider must confirm before Zoom is unlocked.",
+      );
+    } catch (error: any) {
+      Alert.alert("Payment", error?.message || "Could not check payment.");
+    } finally {
+      setPaymentCheckBusy(false);
+    }
+  };
+
+  const joinZoom = async (link: string) => {
+    const url = String(link || "").trim();
+    if (!url) {
+      Alert.alert("Zoom", "No Zoom link is available for this session yet.");
+      return;
+    }
+    try {
+      await Linking.openURL(url);
     } catch {
       Alert.alert("Zoom", "Could not open the Zoom class link.");
     }
@@ -234,6 +367,7 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
           onPress: async () => {
             try {
               await cancelAppointment(appt.id);
+              await cancelTutorAppointmentReminder(appt.id);
               loadAppointments();
             } catch (error: any) {
               Alert.alert("Cancel", error?.message || "Could not cancel.");
@@ -245,10 +379,15 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
   };
 
   const upcoming = appointments.filter(
-    (a) => a.status === "pending" || a.status === "confirmed",
+    (a) =>
+      (a.status === "pending" || a.status === "confirmed") &&
+      (a.isUpcoming !== false),
   );
   const past = appointments.filter(
-    (a) => a.status === "completed" || a.status === "cancelled",
+    (a) =>
+      a.status === "completed" ||
+      a.status === "cancelled" ||
+      a.isUpcoming === false,
   );
 
   return (
@@ -366,8 +505,61 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
             </View>
           </View>
 
+          <View style={styles.pricingCard}>
+            <Text style={styles.pricingTitle}>Session pricing</Text>
+            <View style={styles.pricingRow}>
+              <Text style={styles.pricingLabel}>First Session</Text>
+              <View
+                style={[
+                  styles.pricingBadge,
+                  isFreeTrialBooking
+                    ? styles.pricingBadgeFree
+                    : styles.pricingBadgeUsed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.pricingBadgeText,
+                    isFreeTrialBooking
+                      ? styles.pricingBadgeTextFree
+                      : styles.pricingBadgeTextUsed,
+                  ]}
+                >
+                  {isFreeTrialBooking ? "FREE" : "Used"}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.pricingRow}>
+              <Text style={styles.pricingLabel}>Later sessions</Text>
+              <View style={[styles.pricingBadge, styles.pricingBadgePaid]}>
+                <Text style={[styles.pricingBadgeText, styles.pricingBadgeTextPaid]}>
+                  Paid
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.pricingHint}>
+              {isFreeTrialBooking
+                ? "You are using your one-time free trial for this profile."
+                : "Your free trial has been used. This booking is a paid session."}
+            </Text>
+          </View>
+
           {view === "booking" && (
             <>
+              <Text style={styles.sectionTitle}>
+                What would you like to learn or discuss?
+              </Text>
+              <TextInput
+                style={styles.purposeInput}
+                value={bookingPurpose}
+                onChangeText={setBookingPurpose}
+                placeholder="Tell us what you want to learn, your requirements, or what you would like to discuss..."
+                placeholderTextColor="#999"
+                multiline
+                textAlignVertical="top"
+                maxLength={1000}
+              />
+
               <Text style={styles.sectionTitle}>Select Date</Text>
               <ScrollView
                 horizontal
@@ -472,6 +664,25 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
                 label="Time"
                 value={formatSlotLabel(selectedSlot.startTime, selectedSlot.endTime)}
               />
+              <Row
+                label="Pricing"
+                value={
+                  isFreeTrialBooking
+                    ? "First Session — FREE"
+                    : "Paid session (confirm reserves slot; Zoom after verified payment)"
+                }
+              />
+              {isFreeTrialBooking ? (
+                <Text style={styles.trialConfirmNote}>
+                  Confirming uses your one-time free trial for this profile.
+                </Text>
+              ) : (
+                <Text style={styles.trialConfirmNote}>
+                  Paid sessions stay pending until the server verifies payment.
+                  No payment gateway is connected yet — booking will not claim
+                  payment success.
+                </Text>
+              )}
               <SmoothPressable
                 radius={18}
                 disabled={bookingBusy}
@@ -481,7 +692,11 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
                 {bookingBusy ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.primaryBtnText}>Confirm Appointment</Text>
+                  <Text style={styles.primaryBtnText}>
+                    {isFreeTrialBooking
+                      ? "Confirm Free Trial"
+                      : "Reserve paid session"}
+                  </Text>
                 )}
               </SmoothPressable>
             </View>
@@ -492,11 +707,25 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
       {view === "success" && bookedAppt && (
         <View style={styles.successWrap}>
           <View style={styles.successBadge}>
-            <Ionicons name="checkmark-circle" size={64} color="#5B33C4" />
+            <Ionicons
+              name={
+                bookedAppt.requiresPayment
+                  ? "time-outline"
+                  : "checkmark-circle"
+              }
+              size={64}
+              color="#5B33C4"
+            />
           </View>
-          <Text style={styles.successTitle}>Appointment Booked!</Text>
+          <Text style={styles.successTitle}>
+            {bookedAppt.requiresPayment
+              ? "Reserved — Payment Required"
+              : "Appointment Booked!"}
+          </Text>
           <Text style={styles.successBody}>
-            Your tutor session has been scheduled successfully.
+            {bookedAppt.requiresPayment
+              ? "Your time slot is held. Zoom will unlock only after the server verifies payment. No payment provider is connected yet — this is not a paid confirmation."
+              : "Your tutor session has been scheduled successfully."}
           </Text>
           <View style={styles.confirmCard}>
             <Row label="Tutor" value={bookedAppt.tutorName} />
@@ -505,8 +734,56 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
               label="Time"
               value={formatSlotLabel(bookedAppt.startTime, bookedAppt.endTime)}
             />
+            {bookedAppt.notes ? (
+              <Row label="Learning goal" value={bookedAppt.notes} />
+            ) : null}
+            <Row
+              label="Pricing"
+              value={
+                lastBookingWasFree || bookedAppt.isFreeTrial
+                  ? "First Session — FREE"
+                  : formatMoney(bookedAppt.amount, bookedAppt.currency)
+              }
+            />
+            <Row
+              label="Payment"
+              value={
+                bookedAppt.requiresPayment
+                  ? `Pending (${bookedAppt.paymentStatus || "unpaid"})`
+                  : bookedAppt.isFreeTrial
+                    ? "Not required (free trial)"
+                    : bookedAppt.paymentStatus || "—"
+              }
+            />
             <Row label="Status" value={STATUS_STYLE[bookedAppt.status].label} />
+            {lastPaymentInfo?.message ? (
+              <Text style={styles.trialConfirmNote}>{lastPaymentInfo.message}</Text>
+            ) : null}
           </View>
+          {bookedAppt.canJoin && bookedAppt.zoomLink ? (
+            <SmoothPressable
+              radius={18}
+              style={styles.zoomBtn}
+              onPress={() => joinZoom(bookedAppt.zoomLink)}
+            >
+              <Ionicons name="videocam" size={18} color="#fff" />
+              <Text style={styles.zoomBtnText}>Join Zoom</Text>
+            </SmoothPressable>
+          ) : null}
+          {bookedAppt.requiresPayment ? (
+            <SmoothPressable
+              radius={18}
+              disabled={paymentCheckBusy}
+              style={styles.primaryBtn}
+              onPress={checkPaymentStatus}
+            >
+              {paymentCheckBusy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryBtnText}>Check payment status</Text>
+              )}
+            </SmoothPressable>
+          ) : null}
           <SmoothPressable radius={18} style={styles.primaryBtn} onPress={openAppointments}>
             <Text style={styles.primaryBtnText}>My Appointments</Text>
           </SmoothPressable>
@@ -551,7 +828,11 @@ const TutorScreen: React.FC<Props> = ({ goToHome, goToProfile }) => {
                   <AppointmentCard
                     key={appt.id}
                     appt={appt}
-                    onJoin={() => joinZoom(appt.zoomLink)}
+                    onJoin={
+                      appt.canJoin && appt.zoomLink
+                        ? () => joinZoom(appt.zoomLink)
+                        : undefined
+                    }
                     onCancel={() => onCancel(appt)}
                   />
                 ))
@@ -622,6 +903,33 @@ const AppointmentCard: React.FC<{
   onCancel?: () => void;
 }> = ({ appt, onJoin, onCancel }) => {
   const badge = STATUS_STYLE[appt.status];
+  const showJoin =
+    !!appt.canJoin &&
+    !!appt.zoomLink &&
+    appt.status === "confirmed" &&
+    !appt.requiresPayment &&
+    typeof onJoin === "function";
+
+  const paymentText =
+    appt.paymentLabel ||
+    (appt.isFreeTrial
+      ? "Free trial"
+      : appt.requiresPayment
+        ? `Payment pending (${appt.paymentStatus || "unpaid"})`
+        : appt.paymentStatus === "paid"
+          ? "Paid"
+          : appt.paymentStatus || "—");
+
+  const timingNote = appt.sessionStarted
+    ? "Session in progress"
+    : appt.isUpcoming === false
+      ? "Session ended"
+      : appt.status === "confirmed"
+        ? "Upcoming session"
+        : appt.requiresPayment
+          ? "Awaiting payment"
+          : "Upcoming";
+
   return (
     <View style={styles.apptCard}>
       <View style={styles.apptTop}>
@@ -630,14 +938,31 @@ const AppointmentCard: React.FC<{
           <Text style={[styles.statusText, { color: badge.fg }]}>{badge.label}</Text>
         </View>
       </View>
-      <Text style={styles.apptSubject}>{appt.subject}</Text>
-      <Text style={styles.apptMeta}>
-        {formatFriendlyDate(appt.date)} · {formatSlotLabel(appt.startTime, appt.endTime)}
+      <Text style={styles.apptSubject}>
+        {appt.subject || appt.tutorRole || "Tutor session"}
       </Text>
-      {appt.canJoin && onJoin ? (
+      {appt.tutorRole ? (
+        <Text style={styles.apptMeta}>{appt.tutorRole}</Text>
+      ) : null}
+      <Text style={styles.apptMeta}>
+        {formatFriendlyDate(appt.date)} · starts {appt.startTime}
+        {appt.endTime ? ` – ${appt.endTime}` : ""}
+      </Text>
+      <Text style={styles.apptMeta}>Payment: {paymentText}</Text>
+      <Text style={styles.apptMeta}>Session: {timingNote}</Text>
+      {appt.requiresPayment ? (
+        <Text style={styles.apptPayNote}>
+          Zoom unlocks only after the server verifies payment (
+          {formatMoney(appt.amount, appt.currency)}).
+        </Text>
+      ) : null}
+      {appt.isFreeTrial && appt.status === "confirmed" ? (
+        <Text style={styles.apptPayNote}>First session — FREE</Text>
+      ) : null}
+      {showJoin ? (
         <SmoothPressable radius={14} style={styles.zoomBtn} onPress={onJoin}>
           <Ionicons name="videocam" size={18} color="#fff" />
-          <Text style={styles.zoomBtnText}>Join Zoom Class</Text>
+          <Text style={styles.zoomBtnText}>Join Zoom</Text>
         </SmoothPressable>
       ) : null}
       {(appt.status === "pending" || appt.status === "confirmed") && onCancel ? (
@@ -750,6 +1075,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   bodyText: { color: "#444", lineHeight: 21, fontSize: 14 },
+  purposeInput: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+    minHeight: 96,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#E0D7F7",
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#2E1A6B",
+    lineHeight: 22,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
@@ -816,6 +1156,51 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   confirmHint: { color: "#6B6288", marginBottom: 14, lineHeight: 20 },
+  trialConfirmNote: {
+    color: "#047857",
+    fontWeight: "700",
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  pricingCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 20,
+    marginTop: 14,
+    borderRadius: 22,
+    padding: 16,
+  },
+  pricingTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#35158B",
+    marginBottom: 10,
+  },
+  pricingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  pricingLabel: { color: "#2A2150", fontWeight: "700", fontSize: 14 },
+  pricingBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  pricingBadgeFree: { backgroundColor: "#ECFDF5" },
+  pricingBadgeUsed: { backgroundColor: "#F3F4F6" },
+  pricingBadgePaid: { backgroundColor: "#EDE9FE" },
+  pricingBadgeText: { fontWeight: "800", fontSize: 12 },
+  pricingBadgeTextFree: { color: "#047857" },
+  pricingBadgeTextUsed: { color: "#6B7280" },
+  pricingBadgeTextPaid: { color: "#5B21B6" },
+  pricingHint: {
+    marginTop: 4,
+    color: "#6B6288",
+    fontWeight: "600",
+    lineHeight: 20,
+    fontSize: 13,
+  },
   row: { marginBottom: 10 },
   rowLabel: { color: "#8B82A8", fontWeight: "700", fontSize: 12 },
   rowValue: { color: "#2A2150", fontWeight: "800", fontSize: 16, marginTop: 2 },
@@ -876,6 +1261,13 @@ const styles = StyleSheet.create({
   apptName: { flex: 1, fontWeight: "800", color: "#35158B", fontSize: 16 },
   apptSubject: { color: "#6C4DF7", fontWeight: "700", marginTop: 4 },
   apptMeta: { color: "#6B6288", marginTop: 4, fontWeight: "600" },
+  apptPayNote: {
+    color: "#5B21B6",
+    marginTop: 8,
+    fontWeight: "700",
+    fontSize: 12,
+    lineHeight: 18,
+  },
   statusBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontWeight: "800", fontSize: 11 },
   zoomBtn: {

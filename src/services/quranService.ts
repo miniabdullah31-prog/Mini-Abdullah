@@ -1,7 +1,11 @@
-import { getSudaisAudioUrl } from "../data/juzMeta";
+import { getSudaisAudioUrl, JUZ_LIST } from "../data/juzMeta";
 import type { QuranAyah } from "./quranTypes";
 
 export type { QuranAyah, TranslationLang } from "./quranTypes";
+
+const RUKU_ENDS: Set<string> = new Set(
+  require("../data/quran/rukuEnds.json") as string[],
+);
 
 const JUZ_LOADERS: Record<number, () => unknown> = {
   1: () => require("../data/quran/juz-1.json"),
@@ -45,15 +49,20 @@ function normalizeAyahs(raw: unknown): QuranAyah[] {
 
   return list.map((item: any) => {
     const id = Number(item?.id) || 0;
+    const verseKey = String(item?.verseKey || "");
     return {
       id,
-      verseKey: String(item?.verseKey || ""),
+      verseKey,
       surah: Number(item?.surah) || 0,
       ayahNumber: Number(item?.ayahNumber) || 0,
       arabic: String(item?.arabic || ""),
+      arabicTajweed: item?.arabicTajweed
+        ? String(item.arabicTajweed)
+        : undefined,
       translationEn: String(item?.translationEn || ""),
       translationUr: String(item?.translationUr || ""),
       audioUrl: String(item?.audioUrl || (id ? getSudaisAudioUrl(id) : "")),
+      endsRuku: RUKU_ENDS.has(verseKey),
     };
   });
 }
@@ -72,5 +81,47 @@ export async function getJuzAyahs(juzNumber: number): Promise<QuranAyah[]> {
     return ayahs;
   } catch (e: any) {
     throw new Error(e?.message || "Could not load this para.");
+  }
+}
+
+/** Which paras may contain a given surah (from JUZ_LIST ranges). */
+function juzNumbersForSurah(surahNumber: number): number[] {
+  const matches: number[] = [];
+  for (const juz of JUZ_LIST) {
+    const m = String(juz.range).match(
+      /(\d+)\s*:\s*\d+\s*[–-]\s*(\d+)\s*:\s*\d+/,
+    );
+    if (!m) continue;
+    const startSurah = Number(m[1]);
+    const endSurah = Number(m[2]);
+    if (surahNumber >= startSurah && surahNumber <= endSurah) {
+      matches.push(juz.number);
+    }
+  }
+  if (matches.length) return matches;
+  return Array.from({ length: 30 }, (_, i) => i + 1);
+}
+
+/** Load all ayahs for a surah from bundled juz JSON (plain arabic unchanged). */
+export async function getSurahAyahs(surahNumber: number): Promise<QuranAyah[]> {
+  if (!surahNumber || surahNumber < 1 || surahNumber > 114) {
+    throw new Error("Invalid surah number.");
+  }
+  try {
+    const juzNums = juzNumbersForSurah(surahNumber);
+    const collected: QuranAyah[] = [];
+    for (const juz of juzNums) {
+      const ayahs = await getJuzAyahs(juz);
+      for (const a of ayahs) {
+        if (a.surah === surahNumber) collected.push(a);
+      }
+    }
+    collected.sort((a, b) => a.ayahNumber - b.ayahNumber);
+    if (!collected.length) {
+      throw new Error("This surah has no ayahs yet.");
+    }
+    return collected;
+  } catch (e: any) {
+    throw new Error(e?.message || "Could not load this surah.");
   }
 }

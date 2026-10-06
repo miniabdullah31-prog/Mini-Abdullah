@@ -14,11 +14,27 @@ export type RemoteMedia = {
   localId?: number | null;
 };
 
-/** Turn API relative `/media/...` paths into a phone-reachable URL. */
+/** Turn API relative `/media/...` paths into a phone-reachable URL. 
 export function resolveMediaUrl(pathOrUrl: string | null | undefined): string | null {
   const value = String(pathOrUrl || "").trim();
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
+  const path = value.startsWith("/") ? value : `/${value}`;
+  return `${API_BASE_URL}${path}`;
+}*/
+export function resolveMediaUrl(
+  pathOrUrl: string | null | undefined,
+): string | null {
+  const value = String(pathOrUrl || "").trim();
+  if (!value) return null;
+
+  // Already an absolute URL
+ if (/^https?:\/\//i.test(value)) {
+  return value;
+}
+  
+
+  // Relative backend media path
   const path = value.startsWith("/") ? value : `/${value}`;
   return `${API_BASE_URL}${path}`;
 }

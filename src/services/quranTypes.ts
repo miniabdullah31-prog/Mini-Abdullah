@@ -6,7 +6,11 @@ export type QuranAyah = {
   surah: number;
   ayahNumber: number;
   arabic: string;
+  /** Quran.com text_uthmani_tajweed HTML markup (optional). */
+  arabicTajweed?: string;
   translationEn: string;
   translationUr: string;
   audioUrl: string;
+  /** True when this ayah ends a Mushaf Ruku (ع marker). */
+  endsRuku?: boolean;
 };

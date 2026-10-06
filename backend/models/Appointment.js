@@ -2,6 +2,16 @@ const mongoose = require("mongoose");
 
 const STATUSES = ["pending", "confirmed", "completed", "cancelled"];
 
+const PAYMENT_STATUSES = [
+  "not_required",
+  "unpaid",
+  "pending",
+  "paid",
+  "failed",
+  "refunded",
+  "cancelled",
+];
+
 const appointmentSchema = new mongoose.Schema(
   {
     userId: {
@@ -46,6 +56,35 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isFreeTrial: {
+      type: Boolean,
+      default: false,
+    },
+    paymentRequired: {
+      type: Boolean,
+      default: false,
+    },
+    paymentStatus: {
+      type: String,
+      enum: PAYMENT_STATUSES,
+      default: "not_required",
+      index: true,
+    },
+    amount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    currency: {
+      type: String,
+      default: "PKR",
+      trim: true,
+    },
+    paymentOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PaymentOrder",
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -62,3 +101,4 @@ appointmentSchema.index(
 
 module.exports = mongoose.model("Appointment", appointmentSchema);
 module.exports.STATUSES = STATUSES;
+module.exports.PAYMENT_STATUSES = PAYMENT_STATUSES;

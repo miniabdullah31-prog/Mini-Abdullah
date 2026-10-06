@@ -88,6 +88,11 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
               </TouchableOpacity>
             </View>
             <Text style={styles.mainUr}>{selected.meaningUr}</Text>
+            <Text style={styles.detailCount}>
+              {typeof selected.occurrences === "number"
+                ? `Occurrences in Qur'an: ${selected.occurrences}`
+                : "Occurrences in Qur'an: —"}
+            </Text>
           </View>
 
           {[
@@ -149,16 +154,24 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <SmoothPressable
-            radius={18}
-            onPress={() => setSelected(item)}
-            style={styles.rowCard}
-          >
+          <View style={styles.rowCard}>
             <Text style={styles.rowArabic}>{item.arabic}</Text>
             <View style={styles.rowMid}>
               <Text style={styles.rowTitle}>{item.transliteration}</Text>
               <Text style={styles.rowSub}>{item.meaningEn}</Text>
               <Text style={styles.rowUr}>{item.meaningUr}</Text>
+              <Text style={styles.rowCount}>
+                {typeof item.occurrences === "number"
+                  ? `Occurrences: ${item.occurrences}`
+                  : "Occurrences: —"}
+              </Text>
+              <SmoothPressable
+                radius={14}
+                style={styles.detailsBtn}
+                onPress={() => setSelected(item)}
+              >
+                <Text style={styles.detailsBtnText}>Click to View Details</Text>
+              </SmoothPressable>
             </View>
             <TouchableOpacity
               style={styles.audioBtnSmall}
@@ -166,7 +179,7 @@ const QuranWordsScreen: React.FC<Props> = ({ goBack }) => {
             >
               <Ionicons name="volume-high" size={15} color="#fff" />
             </TouchableOpacity>
-          </SmoothPressable>
+          </View>
         )}
       />
     </SafeAreaView>
@@ -202,8 +215,9 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
+    elevation: 2,
   },
   rowArabic: {
     fontSize: 24,
@@ -211,11 +225,30 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     minWidth: 64,
     textAlign: "center",
+    marginTop: 4,
   },
   rowMid: { flex: 1 },
   rowTitle: { color: "#35158B", fontWeight: "800", fontSize: 15 },
   rowSub: { color: "#555", marginTop: 2, fontSize: 13 },
   rowUr: { color: "#5B33C4", marginTop: 2, fontWeight: "600", fontSize: 13, textAlign: "right" },
+  rowCount: {
+    marginTop: 6,
+    color: "#6B6288",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  detailsBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    backgroundColor: "#5B33C4",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  detailsBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 12,
+  },
   audioBtnSmall: {
     width: 34,
     height: 34,
@@ -223,6 +256,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#5B33C4",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 4,
   },
   detailBody: { padding: 16, paddingBottom: 40 },
   mainCard: {
@@ -252,6 +286,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "right",
     writingDirection: "rtl",
+  },
+  detailCount: {
+    marginTop: 10,
+    color: "#5B33C4",
+    fontWeight: "700",
+    fontSize: 14,
   },
   formCard: {
     backgroundColor: "#fff",

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -19,9 +19,9 @@ import {
 import Ionicons from "@react-native-vector-icons/ionicons";
 import LinearGradient from "react-native-linear-gradient";
 import {
-  getPrayerTimesFromCurrentLocation,
   getPrayerTimesByCity,
 } from "../services/prayerService";
+import { filterCities } from "../data/pakistanCities";
 import {
   getDailyInspiration,
   QUOTE_ROTATION_MS,
@@ -87,6 +87,31 @@ function normalizePrayerTimes(result: any): FlatPrayerTimes | null {
   return { fajr, dhuhr, asr, maghrib, isha };
 }
 
+/** Convert "04:35", "4:35", "16:09 (+05)" → "4:35 AM" / "4:09 PM". */
+function formatPrayerTime12h(raw?: string): string | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const match = raw.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return raw.trim();
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return raw.trim();
+  if (hour > 23 || minute > 59) return raw.trim();
+  const mer = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+  return `${hour}:${String(minute).padStart(2, "0")} ${mer}`;
+}
+
+function toDisplayPrayerTimes(times: FlatPrayerTimes): FlatPrayerTimes {
+  return {
+    fajr: formatPrayerTime12h(times.fajr),
+    dhuhr: formatPrayerTime12h(times.dhuhr),
+    asr: formatPrayerTime12h(times.asr),
+    maghrib: formatPrayerTime12h(times.maghrib),
+    isha: formatPrayerTime12h(times.isha),
+  };
+}
+
 async function cacheAndRefreshPrayerNotifs(
   city: string,
   times: FlatPrayerTimes,
@@ -126,13 +151,13 @@ const Home: React.FC<Props> = ({
   goToTalkingAbdullah,
   goToTutor,
 }) => {
-  const [prayerModal, setPrayerModal] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState<any>(null);
   const [currentCity, setCurrentCity] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [showPrayerTimes, setShowPrayerTimes] = useState(false);
-  const [manualCityModal, setManualCityModal] = useState(false);
-  const [manualCity, setManualCity] = useState("");
+  const [cityModal, setCityModal] = useState(false);
+  const [cityQuery, setCityQuery] = useState("");
+  const [cityListOpen, setCityListOpen] = useState(false);
   const [dailyQuote, setDailyQuote] = useState(FALLBACK_QUOTE);
   const [displayName, setDisplayName] = useState("Friend");
   const [ratingVisible, setRatingVisible] = useState(false);
@@ -244,41 +269,26 @@ const Home: React.FC<Props> = ({
     };
   }, []);
 
-  const handleUseCurrentLocation = async () => {
-    try {
-      setLoading(true);
-      setPrayerModal(false);
+  const filteredCities = useMemo(
+    () => filterCities(cityQuery),
+    [cityQuery],
+  );
 
-      const result: any = await getPrayerTimesFromCurrentLocation();
-
-      setCurrentCity(result.city);
-
-      const times = normalizePrayerTimes(result);
-      if (times) {
-        setPrayerTimes(times);
-        setShowPrayerTimes(true);
-        await cacheAndRefreshPrayerNotifs(result.city || "Current Location", times);
-      } else {
-        throw new Error("No prayer times data found");
-      }
-    } catch (error) {
-      Alert.alert(
-        "Error",
-        error instanceof Error ? error.message : "Failed to get prayer times",
-      );
-    } finally {
-      setLoading(false);
-    }
+  const openCityPicker = () => {
+    setCityQuery(currentCity || "");
+    setCityListOpen(false);
+    setCityModal(true);
   };
 
-  const handleSearchManualCity = async () => {
-    const city = manualCity.trim();
+  const fetchPrayerForCity = async (cityRaw: string) => {
+    const city = cityRaw.trim();
     if (!city) {
-      Alert.alert("Error", "Please enter a city name.");
+      Alert.alert("Error", "Please select or enter a city name.");
       return;
     }
 
-    setManualCityModal(false);
+    setCityModal(false);
+    setCityListOpen(false);
     setLoading(true);
 
     try {
@@ -287,9 +297,10 @@ const Home: React.FC<Props> = ({
 
       const times = normalizePrayerTimes(result);
       if (times) {
-        setPrayerTimes(times);
+        const displayTimes = toDisplayPrayerTimes(times);
+        setPrayerTimes(displayTimes);
         setShowPrayerTimes(true);
-        await cacheAndRefreshPrayerNotifs(result.city || city, times);
+        await cacheAndRefreshPrayerNotifs(result.city || city, displayTimes);
       } else {
         throw new Error("City timings data is empty");
       }
@@ -298,6 +309,12 @@ const Home: React.FC<Props> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectCityFromList = (city: string) => {
+    setCityQuery(city);
+    setCityListOpen(false);
+    fetchPrayerForCity(city).catch(() => undefined);
   };
 
   const cards = [
@@ -428,7 +445,7 @@ const Home: React.FC<Props> = ({
           <View style={styles.topSection}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => setPrayerModal(true)}
+              onPress={openCityPicker}
             >
               <Ionicons name="time-outline" size={28} color="#4B2AA8" />
             </TouchableOpacity>
@@ -445,8 +462,8 @@ const Home: React.FC<Props> = ({
                 Assalamu Alaikum, {displayName}
               </Text>
               <Text style={styles.brandRow}>
-                <Text style={styles.brandEn}>Mini Abdullah</Text>
-                <Text style={styles.brandDot}>  ·  </Text>
+                <Text style={styles.brandEn}>Mini</Text>
+                <Text style={styles.brandDot}>·</Text>
                 <Text style={styles.brandUr}>عبداللہ</Text>
               </Text>
               <Text style={styles.subText}>
@@ -626,36 +643,100 @@ const Home: React.FC<Props> = ({
           <Text style={styles.talkFabText}>Talk</Text>
         </Pressable>
 
-        <Modal transparent visible={prayerModal} animationType="slide">
+        <Modal transparent visible={cityModal} animationType="fade">
           <View style={styles.modalBg}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>Prayer Time Settings</Text>
+            <View style={[styles.modalBox, styles.cityModalBox]}>
+              <Text style={styles.modalTitle}>Select City</Text>
+              <Text style={[styles.optionText, { marginLeft: 0 }]}>
+                Search or open the list to choose a city for prayer times.
+              </Text>
 
-              <TouchableOpacity
-                style={styles.optionBtn}
-                onPress={handleUseCurrentLocation}
-              >
-                <Ionicons name="location-outline" size={22} color="#6C4DF7" />
-                <Text style={styles.optionText}>Use Current Location</Text>
-              </TouchableOpacity>
+              <View style={styles.citySearchRow}>
+                <TextInput
+                  style={styles.citySearchInput}
+                  value={cityQuery}
+                  onChangeText={(text) => {
+                    setCityQuery(text);
+                    setCityListOpen(true);
+                  }}
+                  placeholder="Search city (e.g. Karachi)"
+                  placeholderTextColor="#999"
+                  autoCapitalize="words"
+                  onFocus={() => setCityListOpen(true)}
+                  onPressIn={() => setCityListOpen(true)}
+                />
+                <TouchableOpacity
+                  style={styles.cityDropdownBtn}
+                  onPress={() => setCityListOpen((open) => !open)}
+                  accessibilityLabel={
+                    cityListOpen ? "Hide city list" : "Show city list"
+                  }
+                >
+                  <Ionicons
+                    name={cityListOpen ? "chevron-up" : "chevron-down"}
+                    size={22}
+                    color="#6C4DF7"
+                  />
+                </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.optionBtn}
-                onPress={() => {
-                  setPrayerModal(false);
-                  setManualCityModal(true);
-                }}
-              >
-                <Ionicons name="business-outline" size={22} color="#6C4DF7" />
-                <Text style={styles.optionText}>Select City Manually</Text>
-              </TouchableOpacity>
+              {cityListOpen ? (
+                <View style={styles.cityListContainer}>
+                  <ScrollView
+                    style={styles.cityListScroll}
+                    contentContainerStyle={styles.cityListContent}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                    bounces={false}
+                  >
+                    {filteredCities.length === 0 ? (
+                      <Text style={styles.cityEmptyText}>
+                        No matching cities. You can still tap Get Times with
+                        your typed name.
+                      </Text>
+                    ) : (
+                      filteredCities.map((city) => (
+                        <TouchableOpacity
+                          key={city}
+                          style={styles.cityListItem}
+                          onPress={() => handleSelectCityFromList(city)}
+                        >
+                          <Ionicons
+                            name="location-outline"
+                            size={18}
+                            color="#6C4DF7"
+                          />
+                          <Text style={styles.cityListItemText}>{city}</Text>
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+              ) : null}
 
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setPrayerModal(false)}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={[styles.actionModalBtn, { backgroundColor: "#6C4DF7" }]}
+                  onPress={() => fetchPrayerForCity(cityQuery)}
+                >
+                  <Text style={styles.actionBtnText}>Get Times</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionModalBtn,
+                    { backgroundColor: "#F1F2F6", marginLeft: 10 },
+                  ]}
+                  onPress={() => {
+                    setCityModal(false);
+                    setCityListOpen(false);
+                  }}
+                >
+                  <Text style={[styles.actionBtnText, { color: "#555" }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -669,86 +750,58 @@ const Home: React.FC<Props> = ({
           </View>
         </Modal>
 
-        <Modal transparent visible={manualCityModal} animationType="fade">
-          <View style={styles.modalBg}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>Enter City</Text>
-              <Text style={styles.optionText}>
-                Type city name like Karachi or Lahore
-              </Text>
-              <TextInput
-                style={styles.cityInput}
-                value={manualCity}
-                onChangeText={setManualCity}
-                placeholder="Enter city"
-                placeholderTextColor="#999"
-                autoCapitalize="words"
-              />
-              <View style={styles.modalButtonRow}>
-                <TouchableOpacity
-                  style={[styles.actionModalBtn, { backgroundColor: "#6C4DF7" }]}
-                  onPress={handleSearchManualCity}
-                >
-                  <Text style={styles.actionBtnText}>Search</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.actionModalBtn,
-                    { backgroundColor: "#F1F2F6", marginLeft: 10 },
-                  ]}
-                  onPress={() => setManualCityModal(false)}
-                >
-                  <Text style={[styles.actionBtnText, { color: "#555" }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
         <Modal transparent visible={showPrayerTimes} animationType="slide">
-          <SafeAreaView style={[styles.container, { backgroundColor: "#F6F7FB" }]}>
-            <View style={styles.prayerHeader}>
-              <TouchableOpacity onPress={() => setShowPrayerTimes(false)}>
-                <Ionicons name="close" size={28} color="#6C4DF7" />
-              </TouchableOpacity>
-              <Text style={styles.prayerHeaderTitle}>Prayer Times</Text>
-              <View style={{ width: 28 }} />
-            </View>
+          <View style={styles.prayerModalRoot}>
+            <SafeAreaView style={styles.prayerModalSafe}>
+              <View style={styles.prayerHeader}>
+                <TouchableOpacity onPress={() => setShowPrayerTimes(false)}>
+                  <Ionicons name="close" size={28} color="#6C4DF7" />
+                </TouchableOpacity>
+                <Text style={styles.prayerHeaderTitle}>Prayer Times</Text>
+                <View style={{ width: 28 }} />
+              </View>
 
-            <ScrollView contentContainerStyle={styles.prayerContainer}>
-              <Text style={styles.cityName}>{currentCity}</Text>
-              <Text style={styles.dateText}>
-                {new Date().toLocaleDateString()}
-              </Text>
+              <ScrollView
+                style={styles.prayerScroll}
+                contentContainerStyle={styles.prayerContainer}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="handled"
+                bounces
+              >
+                <Text style={styles.cityName}>{currentCity}</Text>
+                <Text style={styles.dateText}>
+                  {new Date().toLocaleDateString()}
+                </Text>
 
-              {prayerTimes && (
-                <View style={styles.prayerGrid}>
-                  <View style={styles.prayerCard}>
-                    <Text style={styles.prayerLabel}>Fajr</Text>
-                    <Text style={styles.prayerTime}>{prayerTimes.fajr}</Text>
+                {prayerTimes && (
+                  <View style={styles.prayerGrid}>
+                    <View style={styles.prayerCard}>
+                      <Text style={styles.prayerLabel}>Fajr</Text>
+                      <Text style={styles.prayerTime}>{prayerTimes.fajr}</Text>
+                    </View>
+                    <View style={styles.prayerCard}>
+                      <Text style={styles.prayerLabel}>Dhuhr</Text>
+                      <Text style={styles.prayerTime}>{prayerTimes.dhuhr}</Text>
+                    </View>
+                    <View style={styles.prayerCard}>
+                      <Text style={styles.prayerLabel}>Asr</Text>
+                      <Text style={styles.prayerTime}>{prayerTimes.asr}</Text>
+                    </View>
+                    <View style={styles.prayerCard}>
+                      <Text style={styles.prayerLabel}>Maghrib</Text>
+                      <Text style={styles.prayerTime}>
+                        {prayerTimes.maghrib}
+                      </Text>
+                    </View>
+                    <View style={styles.prayerCard}>
+                      <Text style={styles.prayerLabel}>Isha</Text>
+                      <Text style={styles.prayerTime}>{prayerTimes.isha}</Text>
+                    </View>
                   </View>
-                  <View style={styles.prayerCard}>
-                    <Text style={styles.prayerLabel}>Dhuhr</Text>
-                    <Text style={styles.prayerTime}>{prayerTimes.dhuhr}</Text>
-                  </View>
-                  <View style={styles.prayerCard}>
-                    <Text style={styles.prayerLabel}>Asr</Text>
-                    <Text style={styles.prayerTime}>{prayerTimes.asr}</Text>
-                  </View>
-                  <View style={styles.prayerCard}>
-                    <Text style={styles.prayerLabel}>Maghrib</Text>
-                    <Text style={styles.prayerTime}>{prayerTimes.maghrib}</Text>
-                  </View>
-                  <View style={styles.prayerCard}>
-                    <Text style={styles.prayerLabel}>Isha</Text>
-                    <Text style={styles.prayerTime}>{prayerTimes.isha}</Text>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-          </SafeAreaView>
+                )}
+              </ScrollView>
+            </SafeAreaView>
+          </View>
         </Modal>
 
         <View style={styles.navbar}>
@@ -837,7 +890,8 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     alignItems: "center",
     paddingHorizontal: 28,
-    marginTop: 96,
+   //96
+    marginTop: 170,
     width: "86%",
     maxWidth: 340,
   },
@@ -845,17 +899,19 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: "#4B2AA8",
     fontWeight: "800",
+    //extra 903
+    marginTop:10,
     lineHeight: 32,
     textAlign: "center",
   },
   brandRow: {
-    marginTop: 6,
+    marginTop: 8,
     textAlign: "center",
   },
   brandEn: {
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: "800",
-    color: "#6C4DF7",
+    color: "#e32081",
   },
   brandDot: {
     fontSize: 15,
@@ -1235,6 +1291,69 @@ const styles = StyleSheet.create({
     marginTop: 14,
     color: "#333",
   },
+  cityModalBox: {
+    maxHeight: "80%",
+  },
+  citySearchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 14,
+    backgroundColor: "#F6F7FB",
+    overflow: "hidden",
+  },
+  citySearchInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#333",
+  },
+  cityDropdownBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: "#E0E0E0",
+  },
+  /** Fixed-height dropdown shell so 1–2 matches stay bounded and many cities scroll inside. */
+  cityListContainer: {
+    height: 180,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#EDE7FF",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    overflow: "hidden",
+  },
+  cityListScroll: {
+    flex: 1,
+  },
+  cityListContent: {
+    flexGrow: 0,
+    paddingVertical: 4,
+  },
+  cityListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#EEE8FF",
+  },
+  cityListItemText: {
+    fontSize: 15,
+    color: "#2E1A6B",
+    fontWeight: "600",
+  },
+  cityEmptyText: {
+    padding: 14,
+    fontSize: 13,
+    color: "#777",
+    lineHeight: 18,
+  },
   modalButtonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1248,6 +1367,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actionBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  prayerModalRoot: {
+    flex: 1,
+    backgroundColor: "#F6F7FB",
+  },
+  prayerModalSafe: {
+    flex: 1,
+    backgroundColor: "#F6F7FB",
+  },
+  prayerScroll: {
+    flex: 1,
+  },
   prayerHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1258,7 +1388,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#EEE",
   },
   prayerHeaderTitle: { fontSize: 18, fontWeight: "700", color: "#6C4DF7" },
-  prayerContainer: { paddingHorizontal: 20, paddingVertical: 20 },
+  prayerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 48,
+    flexGrow: 1,
+  },
   cityName: {
     fontSize: 28,
     fontWeight: "700",

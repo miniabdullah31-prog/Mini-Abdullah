@@ -8,8 +8,11 @@ import Signup from "./src/Components/Signup";
 import Login from "./src/Components/Login";
 import ForgotPassword from "./src/Components/ForgetPassword";
 import OtpVerification from "./src/Components/OtpVerification";
+import type { OtpMode } from "./src/Components/OtpVerification";
 import ResetPassword from "./src/Components/ResetPassword";
 import SuccessScreen from "./src/Components/SuccessScreen";
+import GenderSelectionScreen from "./src/Components/GenderSelectionScreen";
+import AvatarSelectionScreen from "./src/Components/AvatarSelectionScreen";
 import HomeScreen from "./src/Components/Home";
 import QuranScreen from "./src/Components/QuranScreen";
 import StoriesScreen from "./src/Components/StoriesScreen";
@@ -27,7 +30,8 @@ import {
   markOnboardingDone,
   markFeatureUsed,
 } from "./src/services/appPrefsStore";
-import { getRestorableActiveAccount } from "./src/services/accountStore";
+import { getRestorableActiveAccount, updateSavedAccountProfile, getActiveAccountEmail } from "./src/services/accountStore";
+import type { AvatarId, ProfileGender } from "./src/data/avatars";
 import { hydrateNotificationsIfEnabled } from "./src/services/notificationService";
 import { hydrateUiSoundPref } from "./src/services/soundService";
 import {
@@ -40,6 +44,7 @@ import {
   consumePendingNotificationNav,
 } from "./src/services/notificationNavigation";
 import { tryFeatureBack } from "./src/navigation/featureBackHandler";
+import DocCaptureOverlay from "./src/dev/DocCaptureOverlay";
 
 const APP_SCREEN_MIN = 10;
 const APP_SCREEN_MAX = 21;
@@ -53,6 +58,10 @@ const App = () => {
   const [onboardStep, setOnboardStep] = useState(1);
   const [resetEmail, setResetEmail] = useState("");
   const [resetOtp, setResetOtp] = useState("");
+  /** OTP screen purpose: password reset vs signup email verification. */
+  const [otpMode, setOtpMode] = useState<OtpMode>("reset");
+  /** Post-signup profile setup gender (screens 22 → 23). */
+  const [setupGender, setSetupGender] = useState<ProfileGender | null>(null);
   /** Previous logged-in screens (Home/Games/Learn/…). Never includes Splash/auth. */
   const navHistoryRef = useRef<number[]>([]);
   const screenRef = useRef(screen);
@@ -197,6 +206,33 @@ const App = () => {
       return;
     }
 
+    if (screen === 23) {
+      setScreen(22);
+      return;
+    }
+    if (screen === 22) {
+      // Gender setup is required after signup — go to Success only after avatar.
+      // Back from gender returns to Welcome if user abandons (session already saved).
+      setSetupGender(null);
+      setScreen(3);
+      return;
+    }
+
+    if (screen === 8) {
+      setScreen(7);
+      return;
+    }
+
+    if (screen === 7) {
+      // Keep otp email in state so returning to OTP still has the address.
+      if (otpMode === "signup") {
+        setScreen(4);
+      } else {
+        setScreen(6);
+      }
+      return;
+    }
+
     if (isLoggedInAppScreen(screen)) {
       const prev = navHistoryRef.current.pop();
       if (typeof prev === "number" && isLoggedInAppScreen(prev) && prev !== screen) {
@@ -210,7 +246,30 @@ const App = () => {
     }
 
     setScreen((current) => Math.max(1, current - 1));
-  }, [screen]);
+  }, [screen, otpMode]);
+
+  const finishAvatarSetup = useCallback(
+    async (avatarId: AvatarId) => {
+      if (!setupGender) {
+        setScreen(9);
+        return;
+      }
+      try {
+        const email = await getActiveAccountEmail();
+        if (email) {
+          await updateSavedAccountProfile(email, {
+            gender: setupGender,
+            avatarId,
+          });
+        }
+      } catch {
+        // still continue to success — avatar can be set later in Profile edit
+      }
+      setSetupGender(null);
+      setScreen(9);
+    },
+    [setupGender],
+  );
 
   const handleAndroidBackPress = useCallback(() => {
     if (screen === 1) {
@@ -277,7 +336,16 @@ const App = () => {
       {screen === 4 && (
         <Signup
           goToLogin={() => setScreen(5)}
-          goToSuccess={() => setScreen(9)}
+          goToEmailVerification={(email) => {
+            setResetEmail(email);
+            setResetOtp("");
+            setOtpMode("signup");
+            setScreen(7);
+          }}
+          goToProfileSetup={() => {
+            setSetupGender(null);
+            setScreen(22);
+          }}
         />
       )}
 
@@ -295,6 +363,7 @@ const App = () => {
           goToOtp={(email) => {
             setResetEmail(email);
             setResetOtp("");
+            setOtpMode("reset");
             setScreen(7);
           }}
         />
@@ -302,11 +371,21 @@ const App = () => {
       {screen === 7 && (
         <OtpVerification
           email={resetEmail}
+          mode={otpMode}
           goToNewPassword={(otp) => {
             setResetOtp(otp);
             setScreen(8);
           }}
+          onSignupVerified={() => {
+            setSetupGender(null);
+            setOtpMode("reset");
+            setScreen(22);
+          }}
           goToLogin={() => setScreen(5)}
+          goBackToSignup={() => {
+            setOtpMode("signup");
+            setScreen(4);
+          }}
         />
       )}
       {screen === 8 && (
@@ -316,12 +395,42 @@ const App = () => {
           goToLogin={() => {
             setResetEmail("");
             setResetOtp("");
+            setOtpMode("reset");
             setScreen(5);
           }}
         />
       )}
       {screen === 9 && <SuccessScreen goToHome={goToHome} />}
 
+      {screen === 22 && (
+        <GenderSelectionScreen
+          onContinue={(gender) => {
+            setSetupGender(gender);
+            setScreen(23);
+          }}
+        />
+      )}
+
+      {screen === 23 && setupGender && (
+        <AvatarSelectionScreen
+          gender={setupGender}
+          onBack={() => setScreen(22)}
+          onContinue={(avatarId) => {
+            finishAvatarSetup(avatarId).catch(() => {
+              setSetupGender(null);
+              setScreen(9);
+            });
+          }}
+        />
+      )}
+      {screen === 23 && !setupGender && (
+        <GenderSelectionScreen
+          onContinue={(gender) => {
+            setSetupGender(gender);
+            setScreen(23);
+          }}
+        />
+      )}
       {screen === 10 && (
         <HomeScreen
           goToQuran={goToQuran}
@@ -361,6 +470,16 @@ const App = () => {
           goToProfile={goToProfile}
         />
       )}
+
+      {/* TEMP FYP screenshot helper — enable in src/dev/docCaptureConfig.ts */}
+      <DocCaptureOverlay
+        setScreen={setScreen}
+        ensureSetupGender={() => {
+          if (!setupGender) {
+            setSetupGender("boy");
+          }
+        }}
+      />
     </SafeAreaView>
   );
 };

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
-import { getActiveAuthToken } from "./accountStore";
+import { getValidAccessToken } from "./authSession";
 
 export type TutorGender = "male" | "female";
 
@@ -33,6 +33,15 @@ export type AppointmentStatus =
   | "completed"
   | "cancelled";
 
+export type PaymentStatus =
+  | "not_required"
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "refunded"
+  | "cancelled";
+
 export type TutorAppointment = {
   id: string;
   tutorId: string;
@@ -45,7 +54,36 @@ export type TutorAppointment = {
   status: AppointmentStatus;
   zoomLink: string;
   canJoin: boolean;
+  notes?: string;
   createdAt?: string;
+  isFreeTrial?: boolean;
+  paymentRequired?: boolean;
+  paymentStatus?: PaymentStatus;
+  amount?: number;
+  currency?: string;
+  paymentOrderId?: string | null;
+  requiresPayment?: boolean;
+  isUpcoming?: boolean;
+  sessionStarted?: boolean;
+  paymentLabel?: string;
+};
+
+export type PaymentCheckoutInfo = {
+  orderId: string;
+  appointmentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  provider: string;
+  checkoutConfigured: boolean;
+  checkoutUrl: string | null;
+  message: string;
+};
+
+export type CreateAppointmentResult = {
+  appointment: TutorAppointment;
+  payment: PaymentCheckoutInfo | null;
+  freeTrialAvailable: boolean;
 };
 
 function apiMessage(error: any, fallback: string) {
@@ -58,7 +96,7 @@ function apiMessage(error: any, fallback: string) {
 }
 
 async function authHeaders() {
-  const token = await getActiveAuthToken();
+  const token = await getValidAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -92,12 +130,33 @@ export async function fetchTutorAvailability(
   return response.data.data as TutorAvailability;
 }
 
+export async function fetchFreeTrialStatus(): Promise<boolean> {
+  const { token, headers } = await authHeaders();
+  if (!token) {
+    return true;
+  }
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/appointments/trial-status`,
+      { timeout: 10000, headers },
+    );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Failed to load trial status");
+    }
+    return !!response.data.data?.freeTrialAvailable;
+  } catch (error: any) {
+    throw new Error(apiMessage(error, "Failed to load trial status"));
+  }
+}
+
 export async function createAppointment(payload: {
   tutorId: string;
   date: string;
   startTime: string;
   endTime: string;
-}): Promise<TutorAppointment> {
+  notes?: string;
+  idempotencyKey?: string;
+}): Promise<CreateAppointmentResult> {
   const { token, headers } = await authHeaders();
   if (!token) {
     throw new Error("Please log in to book a tutor.");
@@ -111,13 +170,20 @@ export async function createAppointment(payload: {
     if (!response.data?.success || !response.data.data) {
       throw new Error(response.data?.message || "Could not book this session.");
     }
-    return response.data.data as TutorAppointment;
+    return {
+      appointment: response.data.data as TutorAppointment,
+      payment: (response.data.payment as PaymentCheckoutInfo) || null,
+      freeTrialAvailable: !!response.data.freeTrialAvailable,
+    };
   } catch (error: any) {
     throw new Error(apiMessage(error, "Could not book this session."));
   }
 }
 
-export async function fetchMyAppointments(): Promise<TutorAppointment[]> {
+export async function fetchMyAppointments(): Promise<{
+  appointments: TutorAppointment[];
+  freeTrialAvailable: boolean;
+}> {
   const { token, headers } = await authHeaders();
   if (!token) {
     throw new Error("Please log in to see your appointments.");
@@ -130,9 +196,105 @@ export async function fetchMyAppointments(): Promise<TutorAppointment[]> {
     if (!response.data?.success || !Array.isArray(response.data.data)) {
       throw new Error(response.data?.message || "Failed to load appointments");
     }
-    return response.data.data as TutorAppointment[];
+    return {
+      appointments: response.data.data as TutorAppointment[],
+      freeTrialAvailable:
+        typeof response.data.freeTrialAvailable === "boolean"
+          ? response.data.freeTrialAvailable
+          : true,
+    };
   } catch (error: any) {
     throw new Error(apiMessage(error, "Failed to load appointments"));
+  }
+}
+
+export async function fetchAppointment(
+  appointmentId: string,
+): Promise<TutorAppointment> {
+  const { token, headers } = await authHeaders();
+  if (!token) {
+    throw new Error("Please log in again.");
+  }
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/appointments/${appointmentId}`,
+      { timeout: 12000, headers },
+    );
+    if (!response.data?.success || !response.data.data) {
+      throw new Error(response.data?.message || "Appointment not found");
+    }
+    return response.data.data as TutorAppointment;
+  } catch (error: any) {
+    throw new Error(apiMessage(error, "Failed to load appointment"));
+  }
+}
+
+export async function createPaymentOrder(payload: {
+  appointmentId: string;
+  idempotencyKey?: string;
+}): Promise<PaymentCheckoutInfo> {
+  const { token, headers } = await authHeaders();
+  if (!token) {
+    throw new Error("Please log in again.");
+  }
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/payments/create-order`,
+      payload,
+      { timeout: 15000, headers },
+    );
+    if (!response.data?.success || !response.data.data?.payment) {
+      throw new Error(
+        response.data?.message || "Could not create payment order.",
+      );
+    }
+    return response.data.data.payment as PaymentCheckoutInfo;
+  } catch (error: any) {
+    throw new Error(apiMessage(error, "Could not create payment order."));
+  }
+}
+
+/**
+ * Asks the server to verify payment with the configured provider.
+ * Will not succeed until a real provider adapter verifies — never treat local UI as paid.
+ */
+export async function verifyPaymentOrder(payload: {
+  orderId?: string;
+  idempotencyKey?: string;
+}): Promise<{
+  verified: boolean;
+  appointment: TutorAppointment | null;
+  message: string;
+}> {
+  const { token, headers } = await authHeaders();
+  if (!token) {
+    throw new Error("Please log in again.");
+  }
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/payments/verify`,
+      payload,
+      { timeout: 15000, headers },
+    );
+    if (!response.data?.success) {
+      return {
+        verified: false,
+        appointment: null,
+        message: response.data?.message || "Payment not verified",
+      };
+    }
+    return {
+      verified: true,
+      appointment: (response.data.data?.appointment as TutorAppointment) || null,
+      message: response.data.message || "Payment confirmed",
+    };
+  } catch (error: any) {
+    const status = error?.response?.status;
+    const message = apiMessage(error, "Payment not verified");
+    if (status === 402 || status === 400) {
+      return { verified: false, appointment: null, message };
+    }
+    throw new Error(message);
   }
 }
 
@@ -171,4 +333,10 @@ export function formatFriendlyDate(dateKey: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+export function formatMoney(amount?: number, currency?: string) {
+  const cur = currency || "PKR";
+  const n = typeof amount === "number" ? amount : 0;
+  return `${cur} ${n}`;
 }

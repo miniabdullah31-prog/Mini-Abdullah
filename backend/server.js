@@ -16,6 +16,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const dailyContentRoutes = require("./routes/dailyContentRoutes");
 const tutorRoutes = require("./routes/tutorRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 const { startDailyNotificationScheduler } = require("./services/dailyNotificationScheduler");
 const { seedTutorsIfNeeded } = require("./services/tutorService");
 const { seedMediaIfNeeded, PUBLIC_DIR } = require("./services/mediaService");
@@ -78,6 +79,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/daily-content", dailyContentRoutes);
 app.use("/api/tutors", tutorRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api/media", mediaRoutes);
 app.use("/api/rewards", rewardsRoutes);
 

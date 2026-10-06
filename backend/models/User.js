@@ -33,6 +33,22 @@ const userSchema = new mongoose.Schema({
     default: "local",
   },
 
+  // Signup email-verification OTP (separate from password-reset OTP)
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
+
+  emailVerifyOtp: {
+    type: String,
+    default: null,
+  },
+
+  emailVerifyOtpExpires: {
+    type: Date,
+    default: null,
+  },
+
   // Password-reset OTP (set by forgot-password flow)
   resetOtp: {
     type: String,
@@ -66,6 +82,29 @@ const userSchema = new mongoose.Schema({
       token: { type: String, required: true },
       platform: { type: String, default: "android" },
       updatedAt: { type: Date, default: Date.now },
+    },
+  ],
+
+  /** Server-side one-time free tutor lecture (not client AsyncStorage). */
+  tutorFreeTrialUsed: {
+    type: Boolean,
+    default: false,
+  },
+
+  tutorFreeTrialUsedAt: {
+    type: Date,
+    default: null,
+  },
+
+  /**
+   * Hashed refresh tokens only (sha256). Raw refresh JWTs are never stored.
+   * Used for rotation and logout revocation.
+   */
+  refreshTokens: [
+    {
+      tokenHash: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now },
+      expiresAt: { type: Date, required: true },
     },
   ],
 });

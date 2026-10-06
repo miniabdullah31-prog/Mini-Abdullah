@@ -29,6 +29,7 @@ export type DuaItem = {
   tafseerEng: string;
   tafseerUrdu: string;
   caption: string;
+  image: number | null; /** Bundled require() number, or null */
   /** Your recorded dua audio — require("../assets/duas/file.mp3") or null */
   audio: number | null;
   /** Bundled require() number, or backend `/media/...` path */
@@ -51,9 +52,10 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "یہ دعا دن کا آغاز اللہ کی حاکمیت کے اقرار کے ساتھ کرتی ہے تاکہ سارا دن حفاظت میں گزرے۔",
     caption: "Morning remembrance · start your day with Allah",
-    audio: null, // require("../assets/duas/morning.mp3"),
-    video: "/media/duas/morning-dua.mp4",
+    audio:  require("../assets/duas/audios/Morning-dua.mp3"),
+    video: "/media/duas//Morning-dua.mp4",
     icon: "sunny",
+    image: require("../assets/duas/audios/imagesAi/morningDua.jpg"),
     colors: ["#1F8A70", "#3CB89A"],
   },
   {
@@ -69,8 +71,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "نیند کو چھوٹی موت کہا گیا ہے؛ اس دعا سے سوتے وقت روح اللہ کے سپرد ہوتی ہے۔",
     caption: "Before sleep · entrust yourself to Allah",
-    audio: null, // require("../assets/duas/sleep.mp3"),
-    video: "/media/duas/sleeping-dua.mp4",
+    audio: require("../assets/duas/audios/sleeping-dua.mp3"),
+    video: null,
+    image: require("../assets/duas/audios/imagesAi/sleepingDua.jpg"),
     icon: "moon",
     colors: ["#2E6BFF", "#5AA0FF"],
   },
@@ -87,7 +90,8 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "کھانے پر اللہ کا نام لینے سے برکت آتی ہے اور شیطان اس رزق میں شریک نہیں ہوتا۔",
     caption: "Before eating · begin with Bismillah",
-    audio: null, // require("../assets/duas/eating.mp3"),
+    audio: require("../assets/duas/audios/Eating-dua.mp3"),
+    image: require("../assets/duas/audios/imagesAi/eatingDua.jpg"),
     video: null,
     icon: "restaurant",
     colors: ["#C45C2A", "#E08A4F"],
@@ -106,7 +110,8 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "سفر پر اللہ کا شکر اور حفاظت مانگنے کی مسنون دعا ہے۔",
     caption: "When starting a journey · ask for safety",
-    audio: null, // require("../assets/duas/travel.mp3"),
+    image: require("../assets/duas/audios/imagesAi/travelDua.jpg"),
+    audio: require("../assets/duas/audios/Travel-dua.mp3"),
     video: null,
     icon: "airplane",
     colors: ["#0F9B8E", "#34D1BF"],
@@ -125,8 +130,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "قرآن کی یہ دعا والدین پر رحمت اور حسنِ سلوک سکھاتی ہے۔",
     caption: "For parents · mercy and gratitude",
-    audio: null, // require("../assets/duas/parents.mp3"),
-    video: "/media/duas/dua-for-parents.mp4?v=h264",
+    audio: require("../assets/duas/audios/parents-dua.mp3"),
+   video: "/media/duas/parentsDua.mp4",
+   image: require("../assets/duas/audios/imagesAi/parentsDua.jpg"),
     icon: "people",
     colors: ["#7B2FF7", "#5B33C4"],
   },
@@ -142,8 +148,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "علمِ نافع، تیز حافظہ اور پڑھائی میں آسانی کے لیے مفید قرآنی دعا۔",
     caption: "Before studying · ask for useful knowledge",
-    audio: null, // require("../assets/duas/study.mp3"),
+    audio: require("../assets/duas/audios/BeforeStudy-dua.mp3"),
     video: null,
+    image: require("../assets/duas/audios/imagesAi/studyDua.jpg"),
     icon: "school",
     colors: ["#B06AB3", "#7B3FA0"],
   },
@@ -161,8 +168,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "گھر سے نکلتے وقت یہ دعا شیطان کے شر سے حفاظت دلاتی ہے۔",
     caption: "Leaving home · trust in Allah",
-    audio: null, // require("../assets/duas/leaving-home.mp3"),
+    audio: require("../assets/duas/audios/LeavingHome-dua.mp3"),
     video: null,
+    image: require("../assets/duas/audios/imagesAi/leavingHomeDua.jpg"),
     icon: "walk",
     colors: ["#1F8A70", "#3CB89A"],
   },
@@ -179,8 +187,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "گھر میں داخل ہوتے وقت برکت اور سلامتی کے لیے مسنون دعا۔",
     caption: "Entering home · ask for blessing",
-    audio: null, // require("../assets/duas/entering-home.mp3"),
+    audio: require("../assets/duas/audios/EnteringHome-dua.mp3"),
     video: null,
+    image: require("../assets/duas/audios/imagesAi/enteringHomeDua.jpg"),
     icon: "home",
     colors: ["#2E6BFF", "#5AA0FF"],
   },
@@ -198,8 +207,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "حضرت ابراہیم علیہ السلام کی دعا اپنی، والدین اور امت کی مغفرت کے لیے۔",
     caption: "Seek forgiveness · for yourself and others",
-    audio: null, // require("../assets/duas/forgiveness.mp3"),
+    audio: require("../assets/duas/audios/forgiveness-dua.mp3"), // require("../assets/duas/forgiveness.mp3"),
     video: null,
+    image: require("../assets/duas/audios/imagesAi/forgivenessDua.jpg"),
     icon: "heart",
     colors: ["#C45C2A", "#E08A4F"],
   },
@@ -218,8 +228,9 @@ export const DUAS: DuaItem[] = [
     tafseerUrdu:
       "صبح و شام پڑھنے سے ناگہانی آفت اور بیماری سے اللہ کی پناہ ملتی ہے۔",
     caption: "Morning & evening · divine protection",
-    audio: null, // require("../assets/duas/protection.mp3"),
+    audio: require("../assets/duas/audios/protection-dua.mp3"), // require("../assets/duas/protection.mp3"),
     video: null,
+    image: require("../assets/duas/audios/imagesAi/protectionDua.jpg"),
     icon: "shield-checkmark",
     colors: ["#7B2FF7", "#5B33C4"],
   },

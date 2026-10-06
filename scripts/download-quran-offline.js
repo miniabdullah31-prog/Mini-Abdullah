@@ -1,6 +1,11 @@
 /**
- * One-time script: downloads all 30 Juz (Arabic + EN + UR) into src/data/quran/
+ * One-time script: downloads all 30 Juz (Arabic + EN + UR + Tajweed) into src/data/quran/
  * Run: node scripts/download-quran-offline.js
+ *
+ * Arabic plain text: text_uthmani → `arabic`
+ * Tajweed markup: text_uthmani_tajweed → `arabicTajweed` (Quran.com HTML tags)
+ * To add Tajweed to existing files without re-downloading all text:
+ *   node scripts/enrich-quran-tajweed.js
  */
 const fs = require("fs");
 const path = require("path");
@@ -39,6 +44,7 @@ function mapVerse(verse) {
     surah: Number(surahStr) || 0,
     ayahNumber: Number(ayahStr) || verse.verse_number || 0,
     arabic: verse.text_uthmani || "",
+    arabicTajweed: verse.text_uthmani_tajweed || "",
     translationEn: cleanTranslation(en),
     translationUr: cleanTranslation(ur),
   };
@@ -49,7 +55,7 @@ async function fetchJuzPage(juzNumber, page) {
     timeout: 60000,
     params: {
       translations: `${TRANSLATION_EN},${TRANSLATION_UR}`,
-      fields: "text_uthmani",
+      fields: "text_uthmani,text_uthmani_tajweed",
       per_page: 50,
       page,
     },

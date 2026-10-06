@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ImageBackground,
   StatusBar,
+  TextInput,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "@react-native-vector-icons/ionicons";
@@ -27,6 +28,7 @@ type LangMode = "ur" | "en";
 const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
   const [selected, setSelected] = useState<DailySunnah | null>(null);
   const [lang, setLang] = useState<LangMode>("en");
+  const [search, setSearch] = useState("");
   const [sunnahClaimed, setSunnahClaimed] = useState(false);
   const [sunnahClaiming, setSunnahClaiming] = useState(false);
 
@@ -54,6 +56,18 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
     }, [selected, closeDetail]),
     [selected, closeDetail],
   );
+
+  const filteredSunnahs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return DAILY_SUNNAHS;
+    return DAILY_SUNNAHS.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.titleUrdu.includes(search.trim()) ||
+        item.meaningEn.toLowerCase().includes(q) ||
+        item.howEn.toLowerCase().includes(q),
+    );
+  }, [search]);
 
   if (selected) {
     const isUrdu = lang === "ur";
@@ -209,13 +223,23 @@ const DailySunnahScreen: React.FC<Props> = ({ goBack }) => {
           <Text style={styles.headerSub}>
             Everyday Prophet ﷺ habits · Offline
           </Text>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={22} color="#777" />
+            <TextInput
+              placeholder="Search sunnah..."
+              placeholderTextColor="#777"
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchInput}
+            />
+          </View>
           <HeaderSpark />
         </ImageBackground>
 
         <Text style={styles.sectionTitle}>Today's Habits</Text>
 
         <View style={styles.cardsContainer}>
-          {DAILY_SUNNAHS.map((item) => (
+          {filteredSunnahs.map((item) => (
             <SmoothPressable
               key={item.id}
               radius={20}
@@ -277,6 +301,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: "600",
     textAlign: "center",
+  },
+  searchBar: {
+    backgroundColor: "#fff",
+    width: "92%",
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginTop: 18,
+    height: 52,
+    elevation: 4,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+    color: "#333",
   },
   titleRow: {
     width: "100%",

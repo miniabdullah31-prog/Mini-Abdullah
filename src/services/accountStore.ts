@@ -1,16 +1,36 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  AvatarId,
+  isAvatarId,
+  isProfileGender,
+  ProfileGender,
+} from "../data/avatars";
+import {
+  clearAllSecureTokens,
+  clearSecureTokens,
+  getSecureTokens,
+  setSecureTokens,
+  SecureTokenPair,
+} from "./secureTokenStore";
 
 export type SavedAccount = {
   id: string;
   name: string;
   email: string;
-  token: string;
+  /**
+   * @deprecated Tokens live in Keychain. Optional only during migration /
+   * in-memory convenience — never persisted to AsyncStorage accounts JSON.
+   */
+  token?: string;
+  gender?: ProfileGender;
+  avatarId?: AvatarId;
 };
 
-export const MAX_SAVED_ACCOUNTS = 4;
+export const MAX_SAVED_ACCOUNTS = 2;
 
 const ACCOUNTS_KEY = "miniabdullah_saved_accounts_v1";
 const ACTIVE_EMAIL_KEY = "miniabdullah_active_account_email_v1";
+const LEGACY_TOKEN_KEY = "token";
 
 function normalizeEmail(email: string) {
   return String(email || "")
@@ -18,54 +38,122 @@ function normalizeEmail(email: string) {
     .trim();
 }
 
+function stripTokenForStorage(account: SavedAccount): SavedAccount {
+  const next: SavedAccount = {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+  };
+  if (account.gender) next.gender = account.gender;
+  if (account.avatarId) next.avatarId = account.avatarId;
+  return next;
+}
+
 async function writeActiveSession(account: SavedAccount) {
   const email = normalizeEmail(account.email);
-  const token = String(account.token || "");
   const id = String(account.id || email);
   const name = String(account.name || "User");
 
-  // multiSet can fail if any value is non-string; set explicitly.
-  await AsyncStorage.setItem("token", token);
+  // Non-secret session mirrors only — never write JWT here
   await AsyncStorage.setItem("userEmail", email);
   await AsyncStorage.setItem("userId", id);
   await AsyncStorage.setItem("userName", name);
   await AsyncStorage.setItem(ACTIVE_EMAIL_KEY, email);
+  await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
 
-  // Verify persistence — critical for ID switch
   const saved = await AsyncStorage.getItem(ACTIVE_EMAIL_KEY);
   if (normalizeEmail(saved || "") !== email) {
     throw new Error("Failed to persist active account");
   }
 }
 
+/**
+ * Parse account metadata from AsyncStorage only — never touches Keychain.
+ * Keychain failures must not make valid accounts disappear.
+ */
+function parseAccountsFromStorage(parsed: unknown): {
+  accounts: SavedAccount[];
+  legacyMigrations: { email: string; token: string }[];
+} {
+  if (!Array.isArray(parsed)) {
+    return { accounts: [], legacyMigrations: [] };
+  }
+
+  const accounts: SavedAccount[] = [];
+  const legacyMigrations: { email: string; token: string }[] = [];
+
+  for (const a of parsed) {
+    if (!a || typeof a.email !== "string" || typeof a.name !== "string") {
+      continue;
+    }
+    const email = normalizeEmail(a.email);
+    if (!email) continue;
+
+    const account: SavedAccount = {
+      id: String(a.id || a.email),
+      name: String(a.name),
+      email,
+    };
+    if (isProfileGender(a.gender)) account.gender = a.gender;
+    if (isAvatarId(a.avatarId)) account.avatarId = a.avatarId;
+
+    const legacyToken = a.token != null ? String(a.token || "").trim() : "";
+    if (legacyToken) {
+      legacyMigrations.push({ email, token: legacyToken });
+    }
+
+    accounts.push(account);
+  }
+
+  return { accounts, legacyMigrations };
+}
+
 export async function getSavedAccounts(): Promise<SavedAccount[]> {
+  let raw: string | null = null;
   try {
-    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (a) =>
-          a &&
-          typeof a.email === "string" &&
-          typeof a.name === "string" &&
-          (typeof a.token === "string" || a.token != null),
-      )
-      .map((a) => ({
-        id: String(a.id || a.email),
-        name: String(a.name),
-        email: normalizeEmail(a.email),
-        token: String(a.token || ""),
-      }))
-      .filter((a) => !!a.email);
+    raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
   } catch {
     return [];
   }
+  if (!raw) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  const { accounts, legacyMigrations } = parseAccountsFromStorage(parsed);
+
+  // Best-effort legacy token → Keychain migrate. Never drop accounts on failure.
+  if (legacyMigrations.length > 0) {
+    try {
+      for (const m of legacyMigrations) {
+        try {
+          const existing = await getSecureTokens(m.email);
+          if (!existing?.accessToken) {
+            await setSecureTokens(m.email, {
+              accessToken: m.token,
+              refreshToken: existing?.refreshToken || "",
+            });
+          }
+        } catch {
+          // skip this email — metadata still returned
+        }
+      }
+      await saveAccounts(accounts);
+    } catch {
+      // keep returning parsed accounts even if rewrite failed
+    }
+  }
+
+  return accounts;
 }
 
 async function saveAccounts(accounts: SavedAccount[]) {
-  await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  const safe = accounts.map(stripTokenForStorage);
+  await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(safe));
 }
 
 export async function getActiveAccountEmail(): Promise<string | null> {
@@ -79,19 +167,56 @@ export async function getActiveAccountEmail(): Promise<string | null> {
   }
 }
 
-/** JWT for the active account (Authorization Bearer). */
+/** Persist access/refresh for an email in Keychain and refresh active mirrors. */
+export async function persistTokensForEmail(
+  email: string,
+  pair: SecureTokenPair,
+): Promise<void> {
+  const key = normalizeEmail(email);
+  if (!key) return;
+  try {
+    await setSecureTokens(key, pair);
+  } catch {
+    // Soft-fail — do not clear session mirrors when Keychain is unavailable
+  }
+  try {
+    await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Clear active AsyncStorage session mirrors (not the whole accounts list). */
+export async function clearActiveAuthSession(): Promise<void> {
+  await clearSessionKeys();
+}
+
+/** Access JWT for the active account (Keychain). */
 export async function getActiveAuthToken(): Promise<string | null> {
   try {
     const accounts = await ensureAccountsHydrated();
     const activeEmail = await getActiveAccountEmail();
     const fromList =
       (activeEmail && accounts.find((a) => a.email === activeEmail)) ||
-      accounts.find((a) => !!a.token) ||
+      accounts[0] ||
       null;
-    if (fromList?.token?.trim()) return fromList.token.trim();
+    const email = fromList?.email || activeEmail;
+    if (email) {
+      const pair = await getSecureTokens(email);
+      if (pair?.accessToken?.trim()) return pair.accessToken.trim();
+    }
 
-    const legacy = await AsyncStorage.getItem("token");
-    return legacy && legacy.trim() ? legacy.trim() : null;
+    // One-time legacy fallback then wipe plain storage
+    const legacy = await AsyncStorage.getItem(LEGACY_TOKEN_KEY);
+    if (legacy && legacy.trim() && email) {
+      await setSecureTokens(email, {
+        accessToken: legacy.trim(),
+        refreshToken: "",
+      });
+      await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+      return legacy.trim();
+    }
+    return null;
   } catch {
     return null;
   }
@@ -112,32 +237,47 @@ export async function resolveUserKey(): Promise<string> {
   return "guest";
 }
 
-/** Add or refresh an account after login/signup. Max 4 unique emails. */
+/** Add or refresh an account after login/signup. Max 2 unique emails. */
 export async function upsertSavedAccount(input: {
   id?: string | number;
   name: string;
   email: string;
   token: string;
+  refreshToken?: string;
+  gender?: ProfileGender;
+  avatarId?: AvatarId;
 }): Promise<{ ok: true; accounts: SavedAccount[] } | { ok: false; reason: "max" }> {
   const email = normalizeEmail(input.email);
   if (!email) {
     return { ok: false, reason: "max" };
   }
 
+  const accessToken = String(input.token || "").trim();
+  const refreshToken = String(input.refreshToken || "").trim();
+
   const account: SavedAccount = {
     id: String(input.id || email),
     name: String(input.name || "").trim() || "User",
     email,
-    token: String(input.token || ""),
   };
+
+  if (isProfileGender(input.gender)) {
+    account.gender = input.gender;
+  }
+  if (isAvatarId(input.avatarId)) {
+    account.avatarId = input.avatarId;
+  }
 
   let accounts = await getSavedAccounts();
   const existingIndex = accounts.findIndex((a) => a.email === email);
 
   if (existingIndex >= 0) {
-    // Keep previous token if new one somehow empty
-    if (!account.token && accounts[existingIndex].token) {
-      account.token = accounts[existingIndex].token;
+    const prev = accounts[existingIndex];
+    if (!account.gender && prev.gender) {
+      account.gender = prev.gender;
+    }
+    if (!account.avatarId && prev.avatarId) {
+      account.avatarId = prev.avatarId;
     }
     accounts[existingIndex] = account;
   } else {
@@ -147,9 +287,62 @@ export async function upsertSavedAccount(input: {
     accounts = [...accounts, account];
   }
 
+  // Persist account list + session mirrors first so Profile never goes Guest
+  // if Keychain is slow/unavailable.
   await saveAccounts(accounts);
   await writeActiveSession(account);
+
+  if (accessToken) {
+    try {
+      const prevSecure = await getSecureTokens(email);
+      await setSecureTokens(email, {
+        accessToken,
+        refreshToken: refreshToken || prevSecure?.refreshToken || "",
+      });
+    } catch {
+      // Accounts/mirrors already saved — do not fail login/signup on Keychain
+    }
+  }
+
   return { ok: true, accounts };
+}
+
+/** Update name / gender / avatar for a saved profile (local persistence). */
+export async function updateSavedAccountProfile(
+  email: string,
+  patch: {
+    name?: string;
+    gender?: ProfileGender;
+    avatarId?: AvatarId;
+  },
+): Promise<SavedAccount | null> {
+  const target = normalizeEmail(email);
+  if (!target) return null;
+
+  const accounts = await getSavedAccounts();
+  const index = accounts.findIndex((a) => a.email === target);
+  if (index < 0) return null;
+
+  const next: SavedAccount = { ...accounts[index] };
+  if (typeof patch.name === "string" && patch.name.trim()) {
+    next.name = patch.name.trim();
+  }
+  if (isProfileGender(patch.gender)) {
+    next.gender = patch.gender;
+  }
+  if (isAvatarId(patch.avatarId)) {
+    next.avatarId = patch.avatarId;
+  }
+
+  accounts[index] = next;
+  await saveAccounts(accounts);
+
+  const active = await getActiveAccountEmail();
+  if (active === target) {
+    await writeActiveSession(next);
+  }
+
+  return next;
 }
 
 export async function switchToAccount(email: string): Promise<boolean> {
@@ -163,7 +356,6 @@ export async function switchToAccount(email: string): Promise<boolean> {
 
     await writeActiveSession(target);
 
-    // Double-check so callers can trust the result
     const active = await getActiveAccountEmail();
     return active === targetEmail;
   } catch {
@@ -176,6 +368,7 @@ export async function removeSavedAccount(email: string): Promise<SavedAccount[]>
   let accounts = await getSavedAccounts();
   accounts = accounts.filter((a) => a.email !== target);
   await saveAccounts(accounts);
+  await clearSecureTokens(target);
 
   if (accounts.length === 0) {
     await clearSessionKeys();
@@ -192,7 +385,7 @@ export async function removeSavedAccount(email: string): Promise<SavedAccount[]>
 
 async function clearSessionKeys() {
   await AsyncStorage.multiRemove([
-    "token",
+    LEGACY_TOKEN_KEY,
     "userEmail",
     "userId",
     "userName",
@@ -208,8 +401,8 @@ export async function logoutCurrentAccount(): Promise<SavedAccount[]> {
   try {
     const accounts = await getSavedAccounts();
 
-    // Single ID → wipe list + session so Welcome is the only next step
     if (accounts.length <= 1) {
+      await clearAllSecureTokens(accounts.map((a) => a.email));
       await saveAccounts([]);
       await clearSessionKeys();
       return [];
@@ -222,13 +415,12 @@ export async function logoutCurrentAccount(): Promise<SavedAccount[]> {
 
     return await removeSavedAccount(active);
   } catch {
+    // Do not wipe valid account records on unexpected Keychain/storage errors.
     try {
-      await saveAccounts([]);
-      await clearSessionKeys();
+      return await getSavedAccounts();
     } catch {
-      // ignore
+      return [];
     }
-    return [];
   }
 }
 
@@ -238,7 +430,7 @@ export async function ensureAccountsHydrated(): Promise<SavedAccount[]> {
   if (accounts.length > 0) return accounts;
 
   const [[, token], [, email], [, id], [, name]] = await AsyncStorage.multiGet([
-    "token",
+    LEGACY_TOKEN_KEY,
     "userEmail",
     "userId",
     "userName",
@@ -257,8 +449,7 @@ export async function ensureAccountsHydrated(): Promise<SavedAccount[]> {
   return [];
 }
 
-/** Client-side JWT exp check (no signature verify). Missing/opaque → treat as valid. */
-function isJwtExpired(token: string): boolean {
+function isJwtExpiredLocal(token: string): boolean {
   try {
     const parts = String(token || "").split(".");
     if (parts.length < 2) return false;
@@ -278,7 +469,7 @@ function isJwtExpired(token: string): boolean {
 
 /**
  * Active account with a usable token for cold-start restore.
- * Clears session (and empty tokens) if JWT is past exp.
+ * Tries secure refresh once if access JWT is expired.
  */
 export async function getRestorableActiveAccount(): Promise<SavedAccount | null> {
   try {
@@ -288,24 +479,39 @@ export async function getRestorableActiveAccount(): Promise<SavedAccount | null>
     const activeEmail = await getActiveAccountEmail();
     let account =
       (activeEmail && accounts.find((a) => a.email === activeEmail)) ||
-      accounts.find((a) => !!a.token) ||
+      accounts[0] ||
       null;
 
-    if (!account?.token) return null;
+    if (!account) return null;
 
-    if (isJwtExpired(account.token)) {
-      const cleared = accounts
-        .map((a) =>
-          a.email === account!.email ? { ...a, token: "" } : a,
-        )
-        .filter((a) => !!a.token);
-      await saveAccounts(cleared);
-      await clearSessionKeys();
+    let pair = await getSecureTokens(account.email);
+    let access = pair?.accessToken?.trim() || "";
+
+    // Keychain miss/timeout must not erase AsyncStorage session mirrors.
+    if (!access) {
       return null;
     }
 
-    await writeActiveSession(account);
-    return account;
+    if (isJwtExpiredLocal(access)) {
+      try {
+        const { refreshActiveSession } = await import("./authSession");
+        const refreshed = await refreshActiveSession();
+        if (!refreshed) {
+          // Keep local account list + mirrors; splash simply won't auto-restore.
+          return null;
+        }
+        access = refreshed;
+      } catch {
+        return null;
+      }
+    }
+
+    try {
+      await writeActiveSession(account);
+    } catch {
+      // ignore mirror rewrite failures for restore
+    }
+    return { ...account, token: access };
   } catch {
     return null;
   }

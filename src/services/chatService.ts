@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "../config/api";
-import { getActiveAuthToken } from "./accountStore";
+import { authFetch, getValidAccessToken } from "./authSession";
 
 const DEFAULT_BASE_URL = API_BASE_URL;
 
@@ -48,7 +48,7 @@ export async function sendChatMessage(
   history: ChatHistoryItem[] = [],
   baseURL = DEFAULT_BASE_URL,
 ) {
-  const token = await getActiveAuthToken();
+  const token = await getValidAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -60,7 +60,7 @@ export async function sendChatMessage(
   const timeout = setTimeout(() => controller.abort(), 45000);
 
   try {
-    const res = await fetch(`${baseURL}/api/chat`, {
+    const res = await authFetch(`${baseURL}/api/chat`, {
       method: "POST",
       headers,
       body: JSON.stringify({ message, history }),

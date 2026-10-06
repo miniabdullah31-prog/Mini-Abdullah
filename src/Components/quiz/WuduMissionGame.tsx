@@ -340,6 +340,8 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
     setFlash("bad");
     playUiSound("wrong");
     playShake();
+    wrongRef.current += 1;
+    setWrong(wrongRef.current);
     if (starsRef.current > 0) {
       starsRef.current -= 1;
       setStars(starsRef.current);
@@ -450,19 +452,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
             style={styles.introAbdullah}
           />
           <Text style={styles.introHook}>{ui.challengeHook}</Text>
-          <Animated.View
-            style={[styles.starBar, { transform: [{ scale: starPopAnim }] }]}
-          >
-            {[1, 2, 3].map((i) => (
-              <Ionicons
-                key={i}
-                name="star"
-                size={36}
-                color="#F5B400"
-                style={{ marginHorizontal: 6 }}
-              />
-            ))}
-          </Animated.View>
+          <Text style={styles.triesHud}>Tries: {triesLeft}</Text>
           <TouchableOpacity
             style={styles.nextBtn}
             onPress={() => {
@@ -500,19 +490,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
                 ))}
               </View>
             </View>
-            <Animated.View
-              style={[styles.starBar, { transform: [{ scale: starPopAnim }] }]}
-            >
-              {[1, 2, 3].map((i) => (
-                <Ionicons
-                  key={i}
-                  name={i <= stars ? "star" : "star-outline"}
-                  size={28}
-                  color={i <= stars ? "#F5B400" : "#CBD5E1"}
-                  style={{ marginHorizontal: 2 }}
-                />
-              ))}
-            </Animated.View>
+            <Text style={styles.triesHud}>Tries: {triesLeft}</Text>
           </View>
 
           <View style={styles.abdullahRow}>
@@ -612,9 +590,7 @@ const WuduMissionGame: React.FC<Props> = ({ onExitToHub }) => {
           <Text style={styles.orderTarget}>
             {ui.step} {orderTarget} {ui.of} {WUDU_STEPS.length}
           </Text>
-          <Text style={styles.triesText}>
-            {ui.attemptsLeft}: {triesLeft}
-          </Text>
+          <Text style={styles.triesText}>Tries: {triesLeft}</Text>
 
           <View style={styles.orderGrid}>
             {orderOptions.map((step) => (
@@ -804,6 +780,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+  triesHud: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#4B2AA8",
+    marginVertical: 10,
+    textAlign: "center",
   },
   abdullahRow: {
     flexDirection: "row",
