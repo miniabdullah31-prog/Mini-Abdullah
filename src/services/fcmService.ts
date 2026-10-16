@@ -6,6 +6,7 @@
  */
 import { PermissionsAndroid, Platform } from "react-native";
 import axios from "axios";
+import type { RemoteMessage } from "@react-native-firebase/messaging";
 import { API_BASE_URL } from "../config/api";
 import { getActiveAuthToken } from "./accountStore";
 import {
@@ -16,7 +17,7 @@ import {
 const FCM_CHANNEL_ID = "miniabdullah_fcm";
 const FCM_CHANNEL_NAME = "Mini Abdullah Learning";
 
-type MessagingModule = typeof import("@react-native-firebase/messaging").default;
+type MessagingModule = typeof import("@react-native-firebase/messaging");
 
 let messagingMod: MessagingModule | null = null;
 let messagingLoadFailed = false;
@@ -30,7 +31,7 @@ function loadMessaging(): MessagingModule | null {
   if (messagingMod) return messagingMod;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    messagingMod = require("@react-native-firebase/messaging").default;
+    messagingMod = require("@react-native-firebase/messaging") as MessagingModule;
     return messagingMod;
   } catch (e) {
     messagingLoadFailed = true;
@@ -109,12 +110,13 @@ async function displayForegroundNotification(
 }
 
 export async function getFcmToken(): Promise<string | null> {
-  const messaging = loadMessaging();
-  if (!messaging) return null;
+  const mod = loadMessaging();
+if (!mod) return null;
 
-  try {
-    await ensureAndroidNotificationPermission();
-    const token = await messaging().getToken();
+try {
+  await ensureAndroidNotificationPermission();
+  const messaging = mod.getMessaging();
+  const token = await mod.getToken(messaging);
     return token?.trim() || null;
   } catch (e) {
     console.warn("[FCM] getToken failed:", e);
@@ -151,6 +153,19 @@ export async function registerFcmTokenWithBackend(
     return false;
   }
 }
+function toStringRecord(
+  data: Record<string, string | object> | undefined,
+): Record<string, string | undefined> {
+  const result: Record<string, string | undefined> = {};
+
+  for (const [key, value] of Object.entries(data || {})) {
+    if (typeof value === "string") {
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
 
 function handleRemoteMessageOpen(
   data: Record<string, string | undefined> | undefined,
@@ -163,56 +178,76 @@ function handleRemoteMessageOpen(
 
 function attachMessagingListeners(): void {
   if (listenersAttached) return;
-  const messaging = loadMessaging();
-  if (!messaging) return;
 
+  const mod = loadMessaging();
+  if (!mod) return;
+
+  const messaging = mod.getMessaging();
   listenersAttached = true;
 
-  unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
+  unsubscribeForeground = mod.onMessage(
+    messaging,
+    async (remoteMessage: RemoteMessage) => {
     const title =
-      remoteMessage.notification?.title ||
-      remoteMessage.data?.title ||
-      "Mini Abdullah";
-    const body =
-      remoteMessage.notification?.body ||
-      remoteMessage.data?.body ||
-      "New learning reminder!";
-    const data = (remoteMessage.data || {}) as Record<string, string>;
-    await displayForegroundNotification(title, body, data);
-  });
+  remoteMessage.notification?.title ||
+  (typeof remoteMessage.data?.title === "string"
+    ? remoteMessage.data.title
+    : "Mini Abdullah");
+const body =
+  remoteMessage.notification?.body ||
+  (typeof remoteMessage.data?.body === "string"
+    ? remoteMessage.data.body
+    : "New learning reminder!");
 
-  unsubscribeOpened = messaging().onNotificationOpenedApp((remoteMessage) => {
-    handleRemoteMessageOpen(
-      remoteMessage?.data as Record<string, string | undefined>,
-    );
-  });
+      const data: Record<string, string> = {};
 
-  unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
-    await registerFcmTokenWithBackend(newToken);
-  });
+for (const [key, value] of Object.entries(remoteMessage.data || {})) {
+  if (typeof value === "string") {
+    data[key] = value;
+  }
 }
 
+await displayForegroundNotification(title, body, data);
+    },
+  );
+
+    unsubscribeOpened = mod.onNotificationOpenedApp(
+    messaging,
+    (remoteMessage: RemoteMessage) => {
+      handleRemoteMessageOpen(toStringRecord(remoteMessage?.data));
+    },
+  );
+
+  unsubscribeTokenRefresh = mod.onTokenRefresh(
+    messaging,
+    async (newToken: string) => {
+      await registerFcmTokenWithBackend(newToken);
+    },
+  );
+}
 export async function checkInitialNotification(): Promise<void> {
-  const messaging = loadMessaging();
-  if (!messaging) return;
+  const mod = loadMessaging();
+  if (!mod) return;
 
   try {
-    const initial = await messaging().getInitialNotification();
+    const messaging = mod.getMessaging();
+    const initial = await mod.getInitialNotification(messaging);
+
     if (initial?.data) {
-      handleRemoteMessageOpen(
-        initial.data as Record<string, string | undefined>,
-      );
+    handleRemoteMessageOpen(toStringRecord(initial.data));
+      
     }
   } catch (e) {
     console.warn("[FCM] getInitialNotification failed:", e);
   }
 }
-
+/** Call once after user reaches Home / has session. Idempotent. */
 /** Call once after user reaches Home / has session. Idempotent. */
 export async function initFcmForAuthenticatedUser(): Promise<void> {
   console.log("[FCM] initFcmForAuthenticatedUser() called");
-  const messaging = loadMessaging();
-  if (!messaging) return;
+
+  const mod = loadMessaging();
+  if (!mod) return;
 
   try {
     await ensureAndroidNotificationPermission();
@@ -233,7 +268,6 @@ export async function initFcmForAuthenticatedUser(): Promise<void> {
     console.warn("[FCM] init failed:", e);
   }
 }
-
 export function teardownFcmListeners(): void {
   unsubscribeForeground?.();
   unsubscribeOpened?.();
@@ -246,12 +280,18 @@ export function teardownFcmListeners(): void {
 
 /** Background handler — register from index.js before AppRegistry */
 export function registerBackgroundMessageHandler(): void {
-  const messaging = loadMessaging();
-  if (!messaging) return;
+  const mod = loadMessaging();
+  if (!mod) return;
 
-  messaging().setBackgroundMessageHandler(async (_remoteMessage) => {
-    // System tray handles notification+data payloads when app is backgrounded.
-  });
+  const messaging = mod.getMessaging();
+
+  mod.setBackgroundMessageHandler(
+    messaging,
+    async (_remoteMessage: RemoteMessage) => {
+      // System tray handles notification+data payloads
+      // when the app is backgrounded.
+    },
+  );
 }
 
 /** Notify-kit press events for foreground-displayed FCM messages */

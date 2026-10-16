@@ -16,7 +16,9 @@ export type VoiceListenerHandlers = {
 };
 
 function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+ return new Promise<void>((resolve) => {
+  setTimeout(() => resolve(), ms);
+});
 }
 
 /** Android STT often fires these when user pauses or session ends — not real failures. */

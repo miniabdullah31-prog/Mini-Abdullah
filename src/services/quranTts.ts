@@ -314,28 +314,37 @@ export function speakConversationalAndWait(
   const value = (text || "").trim();
   if (!value) return Promise.resolve();
 
-  return new Promise((resolve) => {
+   return new Promise<void>((resolve) => {
     let settled = false;
+    let fallbackTimer: ReturnType<typeof setTimeout>;
+
+    const onStart = () => {
+      callbacks?.onStart?.();
+    };
+
+    const onProgress = () => {
+      callbacks?.onProgress?.();
+    };
+
     const finish = () => {
       if (settled) return;
       settled = true;
-      finishSub?.remove?.();
-      cancelSub?.remove?.();
-      progressSub?.remove?.();
-      startSub?.remove?.();
+
+      Tts.removeEventListener("tts-finish", finish);
+      Tts.removeEventListener("tts-cancel", finish);
+      Tts.removeEventListener("tts-progress", onProgress);
+      Tts.removeEventListener("tts-start", onStart);
+
       clearTimeout(fallbackTimer);
       resolve();
     };
 
-    const finishSub = Tts.addEventListener("tts-finish", finish);
-    const cancelSub = Tts.addEventListener("tts-cancel", finish);
-    const startSub = Tts.addEventListener("tts-start", () => {
-      callbacks?.onStart?.();
-    });
-    const progressSub = Tts.addEventListener("tts-progress", () => {
-      callbacks?.onProgress?.();
-    });
-    const fallbackTimer = setTimeout(finish, 90000);
+    Tts.addEventListener("tts-finish", finish);
+    Tts.addEventListener("tts-cancel", finish);
+    Tts.addEventListener("tts-start", onStart);
+    Tts.addEventListener("tts-progress", onProgress);
+
+    fallbackTimer = setTimeout(finish, 90000);
 
     speakConversational(value).catch(() => finish());
   });

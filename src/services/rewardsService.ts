@@ -39,7 +39,7 @@ export function todayKeyKarachi(date = new Date()): string {
   }).format(date);
 }
 
-async function authHeaders(): Promise<HeadersInit> {
+async function authHeaders(): Promise<Record<string, string>> {
   const token = await getValidAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

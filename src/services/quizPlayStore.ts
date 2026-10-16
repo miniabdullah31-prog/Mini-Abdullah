@@ -33,7 +33,9 @@ async function migrateLegacyQuizIfNeeded(userKey: string) {
         if (legacy != null) pairs.push([scoped, legacy]);
       }
     }
-    if (pairs.length) await AsyncStorage.multiSet(pairs);
+  for (const [key, value] of pairs) {
+  await AsyncStorage.setItem(key, value);
+}
     await AsyncStorage.setItem(QUIZ_MIGRATED_KEY, "1");
   } catch {
     // ignore
